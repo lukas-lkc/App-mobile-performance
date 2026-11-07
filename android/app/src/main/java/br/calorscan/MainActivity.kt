@@ -422,7 +422,7 @@ class MainActivity : Activity() {
                     }
                 addView(LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    addView(dayBtn, LinearLayout.LayoutParams(dp(74), -2))
+                    addView(dayBtn.apply { textSize = 14f; setPadding(0, dp(8), 0, dp(14)) }, LinearLayout.LayoutParams(dp(82), -2))
                     addView(timeBtn("Liga às", day.start, true), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
                     addView(timeBtn("Pausa às", day.end, false), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
                 }, Ui.lp(this@MainActivity, top = 4, bottom = 4))

@@ -149,7 +149,7 @@ class Report(private val ctx: Context) {
         val start = Session.startTime(ctx)
         val end = Session.endTime(ctx)
         val r = JSONObject()
-        r.put("app", "CalorScan 1.0")
+        r.put("app", "CalorScan 1.1")
         r.put("generated", iso(System.currentTimeMillis()))
         r.put("device", JSONObject().apply {
             put("manufacturer", Build.MANUFACTURER); put("model", Build.MODEL); put("device", Build.DEVICE)
@@ -193,8 +193,34 @@ class Report(private val ctx: Context) {
             }
         })
         r.put("today_usage", todayUsage())
+        r.put("samsung_ai_suspects", JSONArray(suspects(start, end)))
         r.put("samples", JSONArray(samples))
         return r
+    }
+
+    /** Apps da Samsung e de IA que costumam aquecer o Galaxy S24. */
+    fun suspects(start: Long, end: Long): List<JSONObject> {
+        val use = usageInWindow(start, end)
+        val net = networkByApp(start, end)
+        val today = todayUsage()
+        val todayMap = (0 until today.length()).associate {
+            today.getJSONObject(it).let { o -> o.getString("pkg") to o.getDouble("fg_service_min") }
+        }
+        val pkgs = (use.keys + todayMap.keys + net.keys.flatMap { it.split(",") }).filter(::isSuspect).toSet()
+        return pkgs.map { p ->
+            val u = use[p]
+            val bg = net.entries.filter { p in it.key.split(",") }.sumOf { it.value.bgBytes }
+            JSONObject().apply {
+                put("pkg", p); put("label", label(p))
+                put("screen_min", r1((u?.fgMs ?: 0) / 60000.0))
+                put("fg_service_min", r1((u?.fgsMs ?: 0) / 60000.0))
+                put("bg_mb", r1(bg / 1e6))
+                put("today_fg_service_min", todayMap[p] ?: 0.0)
+            }
+        }.filter {
+            it.getDouble("screen_min") + it.getDouble("fg_service_min") + it.getDouble("bg_mb") +
+                it.getDouble("today_fg_service_min") > 0
+        }.sortedByDescending { it.getDouble("fg_service_min") + it.getDouble("bg_mb") }
     }
 
     private fun todayUsage(): JSONArray {
@@ -205,7 +231,7 @@ class Report(private val ctx: Context) {
         try {
             usm.queryAndAggregateUsageStats(c.timeInMillis, System.currentTimeMillis()).values
                 .sortedByDescending { it.totalTimeInForeground + it.totalTimeForegroundServiceUsed }
-                .take(30).forEach {
+                .take(60).forEach {
                     arr.put(JSONObject().apply {
                         put("pkg", it.packageName); put("label", label(it.packageName))
                         put("screen_min", r1(it.totalTimeInForeground / 60000.0))
@@ -288,6 +314,17 @@ class Report(private val ctx: Context) {
         }
 
         sb.appendLine()
+        sb.appendLine("SUSPEITOS: SAMSUNG / IA")
+        val sus = suspects(start, end)
+        if (sus.isEmpty()) {
+            sb.appendLine("• Nenhum apareceu como ativo. Obs.: serviços internos podem rodar sem")
+            sb.appendLine("  aparecer para apps comuns; o modo ADB confirma pelo uso de CPU.")
+        }
+        sus.forEach { sb.appendLine("• ${it.getString("label")}: tela ${it.getDouble("screen_min")} min, " +
+            "2º plano ${it.getDouble("fg_service_min")} min, internet 2º plano ${it.getDouble("bg_mb")} MB, " +
+            "hoje: ${it.getDouble("today_fg_service_min")} min em 2º plano") }
+
+        sb.appendLine()
         sb.appendLine("OUTROS FATORES (% das amostras)")
         fun pct(f: (JSONObject) -> Boolean) = samples.count(f) * 100 / samples.size
         val on = samples.filter { it.optBoolean("screen_on") }
@@ -322,6 +359,25 @@ class Report(private val ctx: Context) {
     }
 
     companion object {
+        private val SUSPECT_EXACT = setOf(
+            "com.samsung.android.scs",                  // Samsung Core Services (busca/IA)
+            "com.samsung.android.smartsuggestions",     // Sugestoes inteligentes
+            "com.samsung.android.offline.languagemodel",// modelos do Galaxy AI
+            "com.samsung.android.intellivoiceservice",  // traducao/voz do Galaxy AI
+            "com.samsung.android.visionintelligence",   // Bixby Vision
+            "com.samsung.android.app.routines",         // Modos e Rotinas
+            "com.samsung.android.rubin.app",            // Customization Service
+            "com.samsung.android.mobileservice",        // Samsung Experience Service
+            "com.samsung.cmh",                          // analise de fotos da Galeria
+            "com.samsung.mediasearch",
+            "com.samsung.android.app.aodservice",       // Always On Display
+            "com.google.android.aicore",                // Gemini Nano
+            "com.google.android.as",                    // Android System Intelligence
+            "com.google.android.apps.bard",             // Gemini
+            "com.google.android.googlequicksearchbox",  // Google/Assistente
+        )
+        fun isSuspect(p: String) = p in SUSPECT_EXACT || "bixby" in p.lowercase()
+
         fun r1(v: Double) = (v * 10).roundToInt() / 10.0
         fun iso(t: Long): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.US).format(Date(t))
         fun hm(t: Long): String = SimpleDateFormat("HH:mm", Locale.US).format(Date(t))

@@ -4,7 +4,7 @@ Duas peças, no mesmo visual de blocos:
 
 | | O que faz |
 |---|---|
-| **App do celular** (`apk/CalorScan.apk`, 150 KB) | Mede a temperatura sozinho desde que o celular liga, avisa quando esquenta, explica o porquê em português claro e aplica os ajustes que esfriam. |
+| **App do celular** (`apk/CalorScan.apk`, ~160 KB) | Mede a temperatura sozinho desde que o celular liga, avisa quando esquenta, explica o porquê em português claro e aplica os ajustes que esfriam. |
 | **CalorScan PC** (programa do notebook) | Com o cabo: instala e libera o app, aplica os ajustes e faz a medição completa do boot (com o consumo de cada processo). |
 
 > Só Android. O iPhone não deixa nenhum app ver o que os outros fazem.
@@ -55,6 +55,11 @@ Sem a liberação o app funciona; a diferença está na tabela:
   **Desfazer tudo**.
 - **Trabalho** — pausar/ligar agora e **agenda por dia da semana** (ex.: seg–sex, liga 08:00 e pausa 20:00). Ao
   ligar o celular fora do expediente, o perfil já fica pausado, o que alivia o aquecimento do boot.
+- **Fotos** — chave *Fotos naturais* (liga/desliga): mostra o que mudar na câmera para ter menos
+  pós-processamento (efeitos de rosto na selfie, Otimizador de cena, HDR automático, filtros) ou para voltar ao
+  padrão Samsung, com atalho para abrir a câmera e lista para marcar. A Samsung não deixa nenhum outro app mudar
+  essas opções, então é um guia, não um ajuste automático. Também indica a câmera *Expert RAW* (oficial da Samsung,
+  com pouco processamento).
 - **Config** — monitor sempre ligado, limite do alerta (41/43/45 °C), permissões e liberação.
 
 O monitor é leve: reage aos avisos de temperatura do próprio Android e grava uma leitura a cada 10 s nos primeiros

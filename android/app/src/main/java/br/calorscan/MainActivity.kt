@@ -100,11 +100,11 @@ class MainActivity : Activity() {
 
     private fun buildNav() {
         nav.removeAllViews()
-        listOf("🌡️\nAgora", "❄️\nEsfriar", "💼\nTrabalho", "⚙️\nConfig").forEachIndexed { i, s ->
+        listOf("🌡️\nAgora", "❄️\nEsfriar", "💼\nTrabalho", "📷\nFotos", "⚙️\nConfig").forEachIndexed { i, s ->
             val b = Ui.button(this, s, if (i == tab) Ui.Kind.SUN_ else Ui.Kind.WHITE_) { show(i) }.apply {
-                textSize = 12.5f; setPadding(0, dp(6), 0, dp(11)); setLineSpacing(0f, 0.95f)
+                textSize = 11.5f; setPadding(0, dp(6), 0, dp(11)); setLineSpacing(0f, 0.95f)
             }
-            nav.addView(b, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
+            nav.addView(b, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
         }
     }
 
@@ -113,7 +113,7 @@ class MainActivity : Activity() {
         buildNav()
         content.removeAllViews()
         liveTemp = null; liveMood = null; mascot = null
-        when (t) { 0 -> buildNow(); 1 -> buildCold(); 2 -> buildWork(); else -> buildConfig() }
+        when (t) { 0 -> buildNow(); 1 -> buildCold(); 2 -> buildWork(); 3 -> buildPhotos(); else -> buildConfig() }
         scroll.scrollTo(0, 0)
     }
 
@@ -179,7 +179,7 @@ class MainActivity : Activity() {
         if (!g.usage || !g.notif) card(Ui.ORANGE) {
             t("Falta uma permissão")
             p("Sem ela o app não sabe qual app está aberto nem consegue avisar. Leva 10 segundos.")
-            btn("Resolver agora", Ui.Kind.WHITE_) { show(3) }
+            btn("Resolver agora", Ui.Kind.WHITE_) { show(4) }
         }
         val recent = Store.samples(this, System.currentTimeMillis() - 3 * 3_600_000).map { it.c }
         card {
@@ -452,6 +452,50 @@ class MainActivity : Activity() {
     private fun pickTime(cur: Int, done: (Int) -> Unit) =
         TimePickerDialog(this, { _, h, m -> done(h * 60 + m) }, cur / 60, cur % 60, true).show()
 
+    // ================================================================ FOTOS
+    private fun buildPhotos() {
+        header("Fotos", "Menos pós-processamento: pele, olhos e cores mais naturais.")
+        val natural = Photos.natural(this)
+        card(if (natural) Ui.GREEN else Ui.WHITE) {
+            addView(toggleRow("Fotos naturais", if (natural) "Ligado: siga a lista abaixo" else "Desligado: câmera no padrão Samsung", natural) { v ->
+                Photos.setNatural(this@MainActivity, v); show(3)
+            })
+            p("A Samsung não deixa nenhum app mudar as configurações da câmera (nem com o notebook). " +
+                "Então o CalorScan te guia: abra a câmera, faça cada item e marque aqui. O app não consegue conferir sozinho.", 0)
+        }
+        val steps = Photos.steps(natural)
+        val done = Photos.done(this)
+        card {
+            t(if (natural) "Para deixar natural" else "Para voltar ao padrão Samsung")
+            p("Os nomes podem variar um pouco conforme a versão do One UI. Se não achar, procure algo parecido no mesmo lugar.")
+            steps.forEach { st ->
+                addView(toggleRow(st.title, st.where, st.id in done) { v -> Photos.mark(this@MainActivity, st.id, v) })
+            }
+            addView(Ui.row(this@MainActivity,
+                Ui.button(this@MainActivity, "Abrir câmera", Ui.Kind.SUN_) {
+                    open(Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA))
+                }), Ui.lp(this@MainActivity, top = 8, bottom = 0))
+        }
+        card {
+            t("Câmera Expert RAW (opcional)")
+            p("App oficial e gratuito da Samsung que tira fotos com bem menos processamento. Use quando quiser a foto mais " +
+                "natural possível e deixe a câmera normal para o dia a dia: é o seu \"liga/desliga\" da IA na hora.")
+            val raw = Photos.EXPERT_RAW
+            if (Cold.installed(this@MainActivity, raw)) btn("Abrir Expert RAW", Ui.Kind.BLUE_) {
+                packageManager.getLaunchIntentForPackage(raw)?.let { open(it) }
+            } else btn("Instalar pela Galaxy Store", Ui.Kind.WHITE_) {
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("samsungapps://ProductDetail/$raw"))) }
+                    .onFailure { open(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$raw"))) }
+            }
+        }
+        card(Ui.WHITE) {
+            t("Por que o olho fica artificial?")
+            p("Na câmera frontal, a Samsung aplica efeitos de rosto (alisar pele, afinar o rosto, realçar olhos) e o otimizador " +
+                "de cena aumenta nitidez e contraste. Juntos, deixam olhos e pele com cara de \"filtro\". Zerar os efeitos de " +
+                "rosto costuma resolver a maior parte.", 0)
+        }
+    }
+
     // ================================================================ CONFIG
     private fun buildConfig() {
         header("Config", "Deixe o app pronto. A maior parte é uma vez só.")
@@ -466,7 +510,7 @@ class MainActivity : Activity() {
             val cur = Store.alertAt(this@MainActivity)
             addView(Ui.row(this@MainActivity, *listOf(41, 43, 45).map { v ->
                 Ui.button(this@MainActivity, "$v °C", if (v == cur) Ui.Kind.SUN_ else Ui.Kind.WHITE_) {
-                    Store.setAlertAt(this@MainActivity, v); show(3)
+                    Store.setAlertAt(this@MainActivity, v); show(4)
                 }
             }.toTypedArray()), Ui.lp(this@MainActivity, bottom = 0))
         }

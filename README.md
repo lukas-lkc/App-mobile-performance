@@ -20,7 +20,8 @@ A cada 15 s, durante o tempo que você escolher:
 | Frequência de cada núcleo e uso da GPU | carga de processamento/gráfico |
 | Carregando ou não, corrente da bateria | descartar o carregador como causa |
 
-No fim, também: consumo de bateria estimado por app, *wakelocks* (apps que não deixam
+No fim, também: os serviços térmicos da Samsung (`sdhms`/`ssrm`) e configurações do One UI
+(taxa de atualização 60/120 Hz, Proteção da bateria, Game Booster, busca Wi-Fi/Bluetooth em segundo plano), consumo de bateria estimado por app, *wakelocks* (apps que não deixam
 o celular dormir), alarmes, sensores ligados e estatísticas de processos.
 
 **Privacidade:** a coleta não pega localização, mensagens, fotos ou contatos. E-mails que
@@ -29,9 +30,18 @@ instalados aparece nos dados — mantenha este repositório **privado**.
 
 ## Como usar
 
-### 1. Prepare o celular (uma vez)
-1. *Configurações → Sobre o telefone* → toque 7× em **Número da versão**.
-2. *Configurações → Sistema → Opções do desenvolvedor* → ative **Depuração USB**.
+### 1. Prepare o celular (uma vez) — Samsung Galaxy (S24 e outros com One UI)
+1. *Configurações → Segurança e privacidade → **Bloqueador automático*** → **desative**.
+   (No One UI 6+ ele bloqueia comandos pelo cabo USB e o ADB não funciona.)
+2. *Configurações → Sobre o telefone → Informações do software* → toque 7× em
+   **Número de compilação** (digite o PIN se pedir).
+3. *Configurações → **Opções do desenvolvedor*** (no fim da lista) → ative **Depuração USB**.
+4. Use um cabo USB-C que transmita dados (o da caixa serve).
+
+> Depois do diagnóstico, se quiser, desative a Depuração USB e reative o Bloqueador automático.
+
+Outros Android: *Configurações → Sobre o telefone* → 7 toques em **Número da versão** →
+*Sistema → Opções do desenvolvedor* → **Depuração USB**.
 
 ### 2. Instale o ADB no computador (uma vez)
 - **Windows:** baixe o [Platform Tools](https://developer.android.com/tools/releases/platform-tools), descompacte e coloque a pasta no `PATH` (ou copie o `adb.exe` para esta pasta).

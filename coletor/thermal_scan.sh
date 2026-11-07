@@ -40,6 +40,17 @@ snap() { # snap <arquivo> <comando...>
   echo "bluetooth_on: $(settings get global bluetooth_on)"
   echo "mobile_data: $(settings get global mobile_data)"
   echo "location_mode: $(settings get secure location_mode)"
+  if [ "$(getprop ro.product.manufacturer)" = "samsung" ]; then
+    echo "--- samsung"
+    echo "one_ui: $(getprop ro.build.version.oneui)"
+    for k in "system refresh_rate_mode" "secure refresh_rate_mode" "global protect_battery" \
+             "global adaptive_battery_management_enabled" "global game_home_enable" \
+             "global gamesdk_version" "system intelligent_sleep_mode" \
+             "global wifi_scan_always_enabled" "global ble_scan_always_enabled" \
+             "secure location_providers_allowed" "system screen_resolution"; do
+      echo "$k: $(settings get $k 2>/dev/null)"
+    done
+  fi
   echo "--- display"
   dumpsys display 2>/dev/null | grep -iE 'mScreenState|refreshRate|renderFrameRate' | head -15
   echo "--- cpu cores"
@@ -107,6 +118,15 @@ snap procstats          dumpsys procstats --hours 3
 snap alarm              dumpsys alarm
 snap sensorservice      dumpsys sensorservice
 snap batterystats       dumpsys batterystats
+
+# servicos proprios do fabricante (Samsung: sdhms/ssrm = gerenciamento termico e de bateria)
+{
+  for svc in $(dumpsys -l 2>/dev/null | grep -iE 'sdhms|ssrm|thermal|gamemanager|game_manager|batterystats_sec|DeviceHealth' | tr -d ' '); do
+    case "$svc" in thermalservice) continue ;; esac
+    echo "######## dumpsys $svc"
+    dumpsys -t 15 "$svc" 2>&1 | head -800
+  done
+} > "$OUT/vendor_services.txt" 2>&1
 
 # ---------- privacidade: remove e-mails (aparecem em nomes de sync) ----------
 for f in "$OUT"/*.txt; do

@@ -1,180 +1,92 @@
-# Calor Scan — o que está esquentando meu celular?
+# CalorScan — o que está esquentando meu celular?
 
-App Android que monitora o celular enquanto você usa e aponta o que o faz esquentar.
-O relatório gerado é lido pelo Claude para fazer o diagnóstico.
+Duas peças, no mesmo visual de blocos:
 
-> **iPhone:** o iOS não permite ver o que outros apps fazem, então é só para Android.
-
-## Instalar o app (Samsung Galaxy S24 e outros Android 10+)
-
-1. **Samsung (One UI 6+):** *Configurações → Segurança e privacidade →* **Bloqueador automático** →
-   desative por enquanto. Ele impede instalar apps de fora da Play Store.
-2. No celular, abra este repositório no GitHub, entre na pasta [`apk/`](apk/) →
-   `CalorScan.apk` → **Download** (ou "View raw").
-3. Abra o arquivo baixado. Se pedir, permita que o navegador ou "Meus Arquivos" **instale apps
-   desconhecidos**. O Play Protect pode avisar que o app é desconhecido → *Mais detalhes →
-   Instalar assim mesmo*.
-
-## Usar
-
-1. Abra o **Calor Scan** e toque em **Permitir acesso aos dados de uso** → ative *Calor Scan*.
-2. Toque em **Permitir rodar em segundo plano** (senão a Samsung fecha o app).
-3. Escolha **30 min, 1 h, 3 h** ou **Até eu parar**.
-4. Use o celular normalmente, **sem carregar** e do jeito que ele costuma esquentar. Uma notificação
-   mostra a temperatura atual.
-5. No fim, toque em **Enviar relatório**. Com o token configurado (abaixo), vai direto para o Claude; sem token, escolha *Drive*, WhatsApp, e-mail… Uma cópia também fica em
-   *Downloads/CalorScan*.
-6. Mande o arquivo `.json` para o Claude no chat (ou salve no Google Drive e avise). Se preferir,
-   **Copiar resumo** e cole o texto no chat.
-
-### Monitorar desde que o celular liga
-Marque **"Monitorar sozinho toda vez que o celular ligar"** e reinicie o celular. Ao desbloquear,
-o app começa sozinho a coletar (a cada 10 s, por 20 min) e, se o envio direto estiver configurado,
-manda o relatório ao terminar, sem você abrir nada.
-
-> Para ver **qual processo** gasta CPU ao ligar (atualizações, indexação, IA da Samsung), use o
-> modo com cabo: `./scan.sh boot` (abaixo). O app comum não enxerga outros processos.
-
-## Envio direto para o Claude (token do GitHub — uma vez só)
-
-Os relatórios vão para a pasta `reports/` deste repositório, onde o Claude lê direto.
-**Deixe o repositório privado**, porque os relatórios mostram quais apps você usa.
-
-1. No GitHub: foto de perfil → *Settings → Developer settings → Personal access tokens*.
-2. **Se o repositório é seu:** *Fine-grained tokens → Generate new token* → *Repository access:
-   Only select repositories* → `App-mobile-performance` → *Permissions → Contents: **Read and write***
-   → *Generate token*.
-   **Se você é colaboradora no repositório de outra pessoa:** *Tokens (classic) → Generate new token*
-   → marque **repo** → *Generate token*.
-3. Copie o token (começa com `github_pat_` ou `ghp_`):
-   - **App:** cole em *Envio direto para o Claude* → **Salvar e testar token**.
-   - **Notebook (modo cabo):** salve num arquivo `.github_token` na pasta do projeto (ele não vai para o Git).
-
-### O que o app consegue ver
-
-| Dado | Para quê |
+| | O que faz |
 |---|---|
-| Temperatura da bateria a cada 20 s, estado térmico e margem até o limite (throttling) | quando e quanto esquenta |
-| App aberto na tela em cada momento | qual app esquenta e quantos °C por 10 min |
-| Apps rodando em segundo plano (serviços ativos) | o que trabalha escondido |
-| Internet por app (em primeiro e em segundo plano) | sincronizações e uploads ocultos |
-| Câmera em uso, áudio tocando, localização, Wi-Fi, Bluetooth | sensores que esquentam |
-| Brilho, taxa de atualização (60/120 Hz), carregando ou não, % de bateria | outros fatores |
+| **App do celular** (`apk/CalorScan.apk`, 150 KB) | Mede a temperatura sozinho desde que o celular liga, avisa quando esquenta, explica o porquê em português claro e aplica os ajustes que esfriam. |
+| **CalorScan PC** (programa do notebook) | Com o cabo: instala e libera o app, aplica os ajustes e faz a medição completa do boot (com o consumo de cada processo). |
 
-O Android **não permite** que um app comum veja quanta CPU cada outro app usa. Para isso existe o
-modo avançado com computador (abaixo), que lê os dados direto do sistema via ADB.
-
-**Privacidade:** o app não lê mensagens, fotos, contatos ou localização, e não envia nada sozinho.
-O relatório só sai do celular quando você toca em *Enviar relatório*.
-
-O código do app fica em [`android/`](android/). Para recompilar, rode `cd android && ./gradlew assembleRelease`
-(é preciso ter o Android SDK).
+> Só Android. O iPhone não deixa nenhum app ver o que os outros fazem.
 
 ---
 
-# Modo avançado: scanner via ADB (com computador)
+## 1. Instalar o app no celular
 
-Coleta muito mais detalhes: uso de CPU por processo, sensores internos de temperatura e serviços
-térmicos da Samsung. Exige ativar a Depuração USB e ter um computador (ou o Termux).
+1. **Samsung:** *Configurações → Segurança e privacidade → Bloqueador automático* → desligue (ele impede instalar
+   apps de fora da Play Store; dá para religar depois).
+2. No celular, baixe: <https://github.com/lukas-lkc/App-mobile-performance/raw/ccr-e3a2eeb0-ekv3ov/apk/CalorScan.apk>
+3. Abra o arquivo e permita "instalar apps desconhecidos". Se o Play Protect avisar → *Mais detalhes → Instalar assim mesmo*.
 
-## O que é coletado (scanner ADB)
+Na aba **Config** do app, toque nos botões de *Permissões básicas* (notificações, dados de uso, segundo plano).
 
-A cada 15 s (10 s no modo boot), durante o tempo que você escolher:
+## 2. Liberação completa (uma vez só, opcional)
 
-| Dado | Para quê |
-|---|---|
-| Temperatura da bateria e de todos os sensores térmicos (CPU, GPU, modem, pele...) | ver onde e quando esquenta |
-| Estado térmico do sistema (throttling) | saber se o Android está segurando o desempenho |
-| Top 20 processos por uso de CPU | achar o app/serviço culpado |
-| App na tela, brilho, tela ligada/desligada | relacionar o calor com o que você estava fazendo |
-| Frequência de cada núcleo e uso da GPU | carga de processamento/gráfico |
-| Carregando ou não, corrente da bateria | descartar o carregador como causa |
+Algumas coisas o Android só deixa liberar pelo modo desenvolvedor: **pausar o perfil de trabalho no horário**,
+**restringir apps sozinho** e **mudar a busca de Wi-Fi/Bluetooth**. Depois de liberado, **desligue o modo
+desenvolvedor**: as permissões continuam valendo (e apps de banco/governo voltam a abrir normalmente).
 
-Também: CPU acumulada por processo desde que o celular ligou (início e fim), registros de
-temperatura/otimização de apps/indexação do sistema, os serviços térmicos da Samsung (`sdhms`/`ssrm`) e configurações do One UI
-(taxa de atualização 60/120 Hz, Proteção da bateria, Game Booster, busca Wi-Fi/Bluetooth em segundo plano), consumo de bateria estimado por app, *wakelocks* (apps que não deixam
-o celular dormir), alarmes, sensores ligados e estatísticas de processos.
+**Jeito A — com notebook:** use o CalorScan PC (abaixo) e clique em *Liberar app*.
 
-**Privacidade:** a coleta não pega localização, mensagens, fotos ou contatos. E-mails que
-aparecem em nomes de sincronização são substituídos por `<email>`. A lista de apps
-instalados aparece nos dados — mantenha este repositório **privado**.
+**Jeito B — sem computador (Shizuku, precisa de Wi-Fi):** siga os passos na aba **Config → Jeito B** do app.
+Resumo: instalar o *Shizuku* (Play Store) → ativar as Opções do desenvolvedor (7 toques em *Número de compilação*)
+→ no Shizuku, *Parear* → em *Opções do desenvolvedor → Depuração sem fio*, *Parear dispositivo com código de
+pareamento* → digitar o código na notificação do Shizuku → *Iniciar* → no CalorScan, *Conectar ao Shizuku* e
+*Liberar agora*.
 
-## Como usar o scanner ADB
+Sem a liberação o app funciona; a diferença está na tabela:
 
-### 1. Prepare o celular (uma vez) — Samsung Galaxy (S24 e outros com One UI)
-1. *Configurações → Segurança e privacidade → **Bloqueador automático*** → **desative**.
-   (No One UI 6+ ele bloqueia comandos pelo cabo USB e o ADB não funciona.)
-2. *Configurações → Sobre o telefone → Informações do software* → toque 7× em
-   **Número de compilação** (digite o PIN se pedir).
-3. *Configurações → **Opções do desenvolvedor*** (no fim da lista) → ative **Depuração USB**.
-4. Use um cabo USB-C que transmita dados (o da caixa serve).
+| Recurso | Sem liberação | Com liberação |
+|---|---|---|
+| Temperatura ao vivo, alertas, diagnóstico, resumo para IA | ✅ | ✅ |
+| Restringir apps em segundo plano | à mão (o app abre a página de cada um) | sozinho |
+| Desativar "Oi, Bixby" e Sugestões inteligentes | à mão | sozinho |
+| Busca de Wi-Fi/Bluetooth | à mão | sozinho |
+| Pausar/ligar o perfil de trabalho no horário | só lembrete | sozinho |
 
-> Depois do diagnóstico, se quiser, desative a Depuração USB e reative o Bloqueador automático.
+## 3. O app por dentro
 
-Outros Android: *Configurações → Sobre o telefone* → 7 toques em **Número da versão** →
-*Sistema → Opções do desenvolvedor* → **Depuração USB**.
+- **Agora** — temperatura ao vivo (o mascote muda de cor), gráfico das últimas 3 horas, o que o app descobriu
+  (pico depois de ligar, apps mais quentes, apps rodando escondidos, perfis extras, carregador) e o botão
+  **Pedir ajuda a uma IA**, que gera um resumo `.md` com as medições e as instruções prontas para colar em
+  qualquer IA.
+- **Esfriar** — *Não deixar iniciar sozinho* (liga/desliga, com a lista de apps; os sugeridos vêm marcados e os que
+  precisam avisar na hora, como Pix e mensagens, você desmarca), recursos da Samsung, busca de Wi-Fi/Bluetooth e
+  **Desfazer tudo**.
+- **Trabalho** — pausar/ligar agora e **agenda por dia da semana** (ex.: seg–sex, liga 08:00 e pausa 20:00). Ao
+  ligar o celular fora do expediente, o perfil já fica pausado, o que alivia o aquecimento do boot.
+- **Config** — monitor sempre ligado, limite do alerta (41/43/45 °C), permissões e liberação.
 
-### 2. Instale o ADB no computador (uma vez)
-- **Windows:** baixe o [Platform Tools](https://developer.android.com/tools/releases/platform-tools), descompacte e coloque a pasta no `PATH` (ou copie o `adb.exe` para esta pasta).
-- **Mac:** `brew install android-platform-tools`
-- **Linux:** `sudo apt install adb`
+O monitor é leve: reage aos avisos de temperatura do próprio Android e grava uma leitura a cada 10 s nos primeiros
+15 min depois de ligar e a cada 1 min no resto do tempo. Nada sai do celular, a não ser o resumo quando você o
+compartilha.
 
-Conecte o cabo, aceite o aviso "Permitir depuração USB?" no celular e confira com `adb devices`.
+## 4. CalorScan PC (notebook Windows)
 
-### 3. Rode o scan
+1. Baixe o projeto: <https://github.com/lukas-lkc/App-mobile-performance/archive/refs/heads/ccr-e3a2eeb0-ekv3ov.zip>
+   e descompacte.
+2. Precisa do Python (<https://www.python.org/downloads/>, marque *Add python.exe to PATH*).
+3. Dê dois cliques em **`Abrir CalorScan PC.bat`**. Abre uma janela com os passos; cada botão acende quando o
+   passo anterior está pronto:
+   1. **Conectar o celular** (mostra como ativar a Depuração USB, o driver da Samsung e o Bloqueador automático;
+      se faltar o ADB, ele baixa sozinho)
+   2. **Instalar o app**
+   3. **Liberar o app**
+   4. **Aplicar ajustes** escolhidos na aba *Esfriar*
+   5. **Medir o aquecimento** — *Reiniciar e medir* (boot) ou *Medir agora*; mostra o resultado com gráfico,
+      conclusões e **Copiar resumo para IA**
+   6. **Desligar o modo desenvolvedor**
 
-**Aquecimento logo depois de ligar** (o mais completo):
+As medições ficam na pasta `relatorios/`. O programa só executa no celular comandos de uma lista fechada
+(restringir/liberar apps, liberar o próprio CalorScan, desativar/reativar o Bixby e as Sugestões, busca de Wi-Fi).
 
-```bash
-./scan.sh boot 15       # Windows: scan.bat boot 15
-```
+---
 
-O celular **reinicia sozinho**. Desbloqueie quando pedir. A coleta começa uns 20 s depois de
-ligar, a cada 10 s. Quando aparecer *"Coleta iniciada"*, **desconecte o cabo**. Depois de 15 min,
-reconecte e rode `./scan.sh collect`. O relatório inclui quanto de CPU **cada processo** gastou
-desde que o celular ligou, então dá para pegar até o que já terminou antes da coleta começar.
+## Avançado
 
-**Aquecimento durante o uso:**
-
-```bash
-./scan.sh start 20      # Windows: scan.bat start 20
-```
-
-1. **Desconecte o cabo** (carregar esquenta e atrapalha o diagnóstico).
-2. Use o celular **do jeito que ele costuma esquentar** por 20 minutos
-   (jogo, Instagram, GPS, vídeo, ou só deixar parado se esquenta no bolso).
-3. Reconecte e baixe o relatório:
-
-```bash
-./scan.sh status        # mostra o progresso
-./scan.sh collect       # salva em reports/<data>_<modelo>/
-```
-
-### 4. Envie para o Claude ler
-
-Com o `.github_token` configurado, o `collect` **envia sozinho** para `reports/adb/` no GitHub. É só
-avisar o Claude. Sem token, anexe a pasta do relatório no chat.
-
-Se tiver Python, o `collect` também gera um `RESUMO.md` legível na pasta do relatório.
-
-### Sem computador (Android 11+, via Termux)
-1. Instale o [Termux](https://f-droid.org/packages/com.termux/) (pelo F-Droid).
-2. `pkg install android-tools git python`
-3. Em *Opções do desenvolvedor → Depuração sem fio*, toque em **Parear com código** e rode
-   `adb pair 127.0.0.1:<porta> <código>` e depois `adb connect 127.0.0.1:<porta da tela principal>`.
-4. Clone este repositório no Termux e use `./scan.sh run 20` (o celular continua livre para usar).
-
-## Estrutura
-
-```
-apk/CalorScan.apk         app pronto para instalar
-android/                  codigo do app
-scan.sh / scan.bat        comandos no computador (start, status, collect, run)
-coletor/thermal_scan.sh   roda dentro do celular e coleta os dados
-analisar.py               gera RESUMO.md a partir de um relatório
-reports/                  relatórios coletados (é aqui que o Claude lê)
-```
-
-Cada relatório contém `info.txt` (aparelho e configurações), `samples.txt` (amostras ao
-longo do tempo), `batterystats.txt`, `cpuinfo_*.txt`, `thermal_*.txt`, `power.txt`,
-`alarm.txt`, `procstats.txt` e `sensorservice.txt`.
+- `scan.sh` / `scan.bat` — o scanner de linha de comando que deu origem a tudo (`boot`, `start`, `status`, `collect`).
+- `coletor/thermal_scan.sh` — roda dentro do celular (via ADB) e coleta temperatura, CPU por processo, estado
+  térmico, batterystats, wakelocks e registros do sistema.
+- `analisar.py` / `diagnostico.py` — leem uma medição e geram o resumo e as conclusões.
+- `android/` — código do app (Kotlin, sem bibliotecas além do Shizuku). Para compilar: `cd android && ./gradlew assembleRelease`.
+- `pc/` — código do CalorScan PC (Python, só biblioteca padrão; a interface é `pc/ui.html`).

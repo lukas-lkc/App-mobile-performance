@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CalorScan PC</title>
+<style>
+:root{
+  --ink:#2b2d42; --sky1:#7fd3ff; --sky2:#c6efff; --grass:#62d26f; --grass2:#3fa452; --dirt:#b7794a;
+  --sun:#ffd23f; --sun2:#e0a800; --blue:#3fa9f5; --blue2:#1f7cc2; --green:#45c463; --green2:#2b8f44;
+  --orange:#ff9a3c; --orange2:#d26b12; --red:#ff5a4e; --red2:#c2342a; --grey:#cfd5dd; --grey2:#9aa3ad;
+  --card:#ffffff; --muted:#5d6177;
+  --head:"Segoe UI Black","Arial Black","Segoe UI",system-ui,sans-serif;
+  --body:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--body);font-weight:600;color:var(--ink);
+  background:linear-gradient(var(--sky1),var(--sky2) 70%);overflow-x:hidden}
+/* nuvens de blocos */
+.cloud{position:fixed;background:#fff;height:22px;box-shadow:22px -22px 0 #fff,44px 0 0 #fff,66px -22px 0 #fff,88px 0 0 #fff;
+  width:22px;opacity:.85;z-index:0}
+.c1{top:230px;left:1%} .c2{top:150px;right:12%;transform:scale(.8)} .c3{top:40px;right:38%;transform:scale(.6)}
+.ground{position:fixed;left:0;right:0;bottom:0;height:34px;background:var(--grass);
+  border-top:6px solid var(--grass2);box-shadow:0 14px 0 var(--dirt) inset;z-index:0}
+.ground:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 28px,rgba(0,0,0,.06) 28px 56px)}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:18px 16px 64px}
+header{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+h1{font-family:var(--head);font-size:34px;margin:0;letter-spacing:.5px;color:#fff;
+  text-shadow:3px 3px 0 var(--ink),-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink)}
+.sub{margin:2px 0 0;color:var(--ink);opacity:.8}
+.chip{margin-left:auto;background:var(--card);border:3px solid var(--ink);box-shadow:0 5px 0 var(--ink);
+  border-radius:8px;padding:8px 14px;font-family:var(--head);font-size:15px;display:flex;gap:10px;align-items:center}
+.dot{width:12px;height:12px;border:2px solid var(--ink);background:var(--grey)}
+.dot.on{background:var(--green)} .dot.warn{background:var(--sun)} .dot.bad{background:var(--red)}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}.chip{display:none}}
+.card{background:var(--card);border:3px solid var(--ink);box-shadow:0 6px 0 var(--ink);border-radius:8px;
+  padding:14px 16px;margin-bottom:16px}
+.step{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:start}
+.num{width:44px;height:44px;display:grid;place-items:center;font-family:var(--head);font-size:20px;color:#fff;
+  background:var(--blue);border:3px solid var(--ink);box-shadow:inset -5px -5px 0 rgba(0,0,0,.18),inset 4px 4px 0 rgba(255,255,255,.35)}
+.step.done .num{background:var(--green)} .step.locked .num{background:var(--grey)}
+.step h3{font-family:var(--head);margin:0 0 4px;font-size:17px}
+.step p{margin:0 0 8px;color:var(--muted);font-size:14px;line-height:1.4;font-weight:500}
+.step p b{color:var(--ink);font-weight:800}
+.step.locked h3,.step.locked p{opacity:.55}
+.pill{display:inline-block;font-size:12px;font-family:var(--head);padding:2px 8px;border:2px solid var(--ink);
+  border-radius:4px;margin-left:6px;vertical-align:2px;background:var(--sun)}
+.pill.ok{background:var(--green);color:#fff} .pill.lock{background:var(--grey)}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+button,.btn{font-family:var(--head);font-size:15px;color:#fff;border:3px solid var(--ink);border-radius:6px;
+  padding:9px 16px;cursor:pointer;background:var(--blue);box-shadow:0 6px 0 var(--blue2),0 6px 0 3px var(--ink);
+  transition:transform .06s,box-shadow .06s;text-decoration:none;display:inline-block}
+button:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 var(--blue2),0 2px 0 3px var(--ink)}
+button.g{background:var(--green);box-shadow:0 6px 0 var(--green2),0 6px 0 3px var(--ink)}
+button.o{background:var(--orange);box-shadow:0 6px 0 var(--orange2),0 6px 0 3px var(--ink)}
+button.r{background:var(--red);box-shadow:0 6px 0 var(--red2),0 6px 0 3px var(--ink)}
+button.y{background:var(--sun);color:var(--ink);box-shadow:0 6px 0 var(--sun2),0 6px 0 3px var(--ink)}
+button:disabled{background:var(--grey);color:#8a919c;box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink);cursor:not-allowed}
+button:focus-visible{outline:4px solid var(--sun);outline-offset:3px}
+.seg{display:inline-flex;border:3px solid var(--ink);border-radius:6px;overflow:hidden;margin-right:6px;vertical-align:middle}
+.seg button{border:0;border-radius:0;box-shadow:none;padding:7px 11px;background:#fff;color:var(--ink);font-size:13px}
+.seg button.sel{background:var(--sun)}
+.seg button+button{border-left:3px solid var(--ink)}
+ol.help{margin:6px 0 4px 18px;padding:0;font-size:14px;line-height:1.55;color:var(--ink);font-weight:500}
+ol.help b{font-weight:800}
+details summary{cursor:pointer;font-family:var(--head);font-size:14px;color:var(--blue2)}
+a{color:var(--blue2)}
+.bar{height:22px;border:3px solid var(--ink);border-radius:4px;background:#e9eef5;overflow:hidden;margin:8px 0}
+.bar>i{display:block;height:100%;background:repeating-linear-gradient(45deg,var(--green) 0 14px,var(--grass2) 14px 28px);
+  transition:width .5s}
+.result h2{font-family:var(--head);margin:0 0 8px;font-size:20px}
+.big{display:flex;align-items:center;gap:14px;margin:4px 0 10px}
+.big .t{font-family:var(--head);font-size:44px;line-height:1}
+.find{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:9px 0;border-top:3px dashed #e3e7ee}
+.find .ic{width:22px;height:22px;border:3px solid var(--ink);margin-top:2px}
+.find.danger .ic{background:var(--red)} .find.warn .ic{background:var(--orange)} .find.info .ic{background:var(--blue)}
+.find.ok .ic{background:var(--green)}
+.find b{font-family:var(--head);font-weight:400;display:block;font-size:15px}
+.find span{color:var(--muted);font-size:14px;line-height:1.4}
+.proc{display:grid;grid-template-columns:150px 1fr 48px;gap:8px;align-items:center;font-size:13px;margin:5px 0}
+.proc .b{height:16px;border:2px solid var(--ink);background:var(--orange)}
+.proc .b.sistema{background:var(--grey2)} .proc .b.google{background:var(--blue)} .proc .b.samsung{background:var(--sun)}
+.proc .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:2px 0 8px}
+.legend i{display:inline-block;width:11px;height:11px;border:2px solid var(--ink);vertical-align:-1px;margin-right:4px}
+svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);border-radius:4px;background:#f3f8ff}
+.log{position:fixed;left:16px;right:16px;bottom:44px;z-index:2;max-width:1148px;margin:0 auto;
+  background:var(--ink);color:#fff;border-radius:6px;padding:8px 12px;font-size:13px;font-family:Consolas,monospace;
+  display:none;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.log.show{display:block}
+.empty{text-align:center;color:var(--muted);padding:24px 8px}
+.mascot{animation:bob 1.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-5px)}}
+.mascot.hot{animation:shake .35s linear infinite}
+@keyframes shake{25%{transform:translate(-2px,0)}75%{transform:translate(2px,0)}}
+@media (prefers-reduced-motion:reduce){.mascot,.mascot.hot{animation:none}}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--sun);border:3px solid var(--ink);
+  box-shadow:0 5px 0 var(--ink);padding:8px 16px;font-family:var(--head);border-radius:6px;z-index:5;display:none}
+</style>
+</head>
+<body>
+<div class="cloud c2"></div><div class="cloud c3"></div>
+<div class="ground"></div>
+<div class="toast" id="toast"></div>
+
+<div class="wrap">
+  <header>
+    <svg id="mascot" class="mascot" width="64" height="88" viewBox="0 0 16 22" aria-hidden="true"></svg>
+    <div>
+      <h1>CalorScan PC</h1>
+      <p class="sub">Descubra o que esquenta o celular e deixe ele mais fresco.</p>
+    </div>
+    <div class="chip" id="chip"><span class="dot" id="dot"></span><span id="chipText">Procurando celular…</span></div>
+  </header>
+
+  <div class="grid">
+    <section id="steps"></section>
+    <section>
+      <div class="card result" id="result"></div>
+    </section>
+  </div>
+</div>
+<div class="log" id="log"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let st = null, minutes = 10;
+
+/* ---------- mascote de blocos (termometro) ---------- */
+function mascot(temp){
+  const c = temp==null ? ["#9fb3c8","#7d93a8"] : temp<35 ? ["#4fc3f7","#2a8fc4"] : temp<40 ? ["#62d26f","#3fa452"]
+          : temp<43 ? ["#ffb13d","#d68412"] : ["#ff5a4e","#c2342a"];
+  const B=(x,y,w,h,f)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}"/>`;
+  let s="";
+  // tubo
+  s+=B(5,1,6,13,"#2b2d42")+B(6,2,4,11,"#eef4fb")+B(9,2,1,11,"#d3dde8");
+  const lvl = temp==null?6:Math.max(2,Math.min(10,Math.round((temp-30)/1.6)));
+  s+=B(6,13-lvl,4,lvl,c[0])+B(9,13-lvl,1,lvl,c[1]);
+  // bulbo
+  s+=B(2,12,12,9,"#2b2d42")+B(3,13,10,7,c[0])+B(11,13,2,7,c[1])+B(3,13,8,1,"rgba(255,255,255,.35)");
+  // rosto
+  s+=B(5,15,2,2,"#2b2d42")+B(9,15,2,2,"#2b2d42")+B(5,15,1,1,"#fff")+B(9,15,1,1,"#fff");
+  s+= temp>=43 ? B(6,18,4,1,"#2b2d42") : B(6,18,4,1,"#2b2d42")+B(5,17,1,1,"#2b2d42")+B(10,17,1,1,"#2b2d42");
+  if(temp>=40) s+=B(13,9,1,2,"#4fc3f7")+B(14,10,1,1,"#4fc3f7");
+  if(temp>=43) s+=B(1,8,1,2,"#4fc3f7")+B(0,9,1,1,"#4fc3f7");
+  $("#mascot").innerHTML=s;
+  $("#mascot").classList.toggle("hot", temp>=43);
+}
+
+/* ---------- acoes ---------- */
+async function act(name, arg){
+  const r = await fetch(`/api/action/${name}${arg?"/"+arg:""}`, {method:"POST"});
+  if(r.status===409) toast("Espere terminar o que está em andamento");
+  poll();
+}
+function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",2600)}
+async function copyMd(){
+  const t = await (await fetch("/api/md")).text();
+  try{ await navigator.clipboard.writeText(t); toast("Copiado! Cole no chat da IA"); }
+  catch{ const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();toast("Copiado!"); }
+}
+async function saveMd(){
+  const t = await (await fetch("/api/md")).text();
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/markdown"}));
+  a.download="CalorScan_resumo_para_IA.md";a.click();
+}
+
+/* ---------- render ---------- */
+function stepHTML(n, title, pill, body, buttons, state){
+  const p = pill ? `<span class="pill ${state==="done"?"ok":state==="locked"?"lock":""}">${pill}</span>` : "";
+  return `<div class="card step ${state||""}"><div class="num">${state==="done"?"✓":n}</div>
+    <div><h3>${title}${p}</h3>${body}${buttons?`<div class="btns">${buttons}</div>`:""}</div></div>`;
+}
+const B=(label,cls,on,dis)=>`<button class="${cls||""}" onclick="${on}" ${dis?"disabled":""}>${label}</button>`;
+
+function render(){
+  const ph=st.phone||{}, app=st.app||{}, busy=!!st.busy, sc=st.scan||{phase:"idle"};
+  const con = ph.device==="device";
+  mascot(con?ph.temp:null);
+  // chip
+  const dot=$("#dot");
+  dot.className="dot "+(con?(ph.temp>=43?"bad":ph.temp>=40?"warn":"on"):ph.device==="unauthorized"?"warn":"");
+  $("#chipText").textContent = !ph.adb ? "ADB não encontrado" : con ? `${ph.model_full||ph.model} · ${ph.temp?.toFixed(1)} °C${ph.charging?" · carregando":""}`
+    : ph.device==="unauthorized" ? "Aceite no celular" : ph.device==="rebooting" ? "Celular reiniciando…" : "Nenhum celular conectado";
+
+  let h="";
+  // 1 conectar
+  let s1, b1="", body1;
+  if(!ph.adb){ s1="now"; body1=`<p>O programa precisa do ADB (ferramenta oficial do Google, ~10 MB). Ele baixa sozinho.</p>`; b1=B("Baixar ADB","y","act('download_adb')",busy); }
+  else if(con){ s1="done"; body1=`<p>${ph.model_full||ph.model} · Android ${ph.android||"?"} · bateria ${ph.temp?.toFixed(1)} °C</p>`; }
+  else if(ph.device==="unauthorized"){ s1="now"; body1=`<p><b>Olhe o celular:</b> apareceu "Permitir depuração USB?". Marque <b>Sempre permitir neste computador</b> e toque em <b>Permitir</b>.</p>`; }
+  else if(ph.device==="rebooting"){ s1="now"; body1=`<p>O celular está reiniciando. Quando ligar, desbloqueie com o PIN.</p>`; }
+  else { s1="now"; body1=`<p>Ligue o cabo USB no celular e no notebook.</p>
+    <details ${ph.device==="none"?"open":""}><summary>Primeira vez? Prepare o celular (1 vez só)</summary><ol class="help">
+    <li><b>Configurações → Sobre o telefone → Informações do software</b> → toque <b>7 vezes</b> em <b>Número de compilação</b> e digite o PIN.</li>
+    <li>Volte para <b>Configurações</b>: no fim da lista apareceu <b>Opções do desenvolvedor</b>. Entre e ligue <b>Depuração USB</b>.</li>
+    <li>Samsung: <b>Configurações → Segurança e privacidade → Bloqueador automático</b> → desligue (ele bloqueia o cabo).</li>
+    <li>Windows: instale o <a href="${st.driver_url}" target="_blank">driver USB da Samsung</a> e reconecte o cabo.</li>
+    <li>Use um cabo que transmite dados (o da caixa serve). Deixe o celular <b>desbloqueado</b>.</li></ol></details>`; }
+  h+=stepHTML(1,"Conectar o celular", s1==="done"?"Conectado":"Agora", body1, b1, s1);
+
+  // 2 instalar
+  const s2 = !con ? "locked" : app.installed && !app.update ? "done" : "now";
+  h+=stepHTML(2,"Instalar o app CalorScan no celular",
+    s2==="locked"?"Faça o passo 1":s2==="done"?`Versão ${app.version}`:app.installed?"Atualização":"Agora",
+    `<p>O app fica no celular medindo a temperatura sozinho, mesmo sem o notebook.</p>`,
+    s2==="done"?"":B(app.installed?"Atualizar app":"Instalar app","g","act('install')",!con||busy), s2);
+
+  // 3 liberar
+  const s3 = !con||!app.installed ? "locked" : app.granted ? "done" : "now";
+  h+=stepHTML(3,"Liberar o app (1 vez só)",
+    s3==="locked"?"Faça o passo 2":s3==="done"?"Liberado":"Agora",
+    `<p>Dá ao app as permissões que só podem ser liberadas pelo cabo: pausar o perfil de trabalho no horário,
+     ajustar configurações e restringir apps. Elas continuam valendo depois que você desligar o modo desenvolvedor.
+     ${s3==="now"?"<br><b>Antes:</b> abra o app CalorScan no celular uma vez.":""}</p>`,
+    s3==="done"?"":B("Liberar app","g","act('grant')",s3!=="now"||busy), s3);
+
+  // 4 aplicar
+  const pend = app.pending||0;
+  const s4 = s3!=="done" ? "locked" : pend>0 ? "now" : "done";
+  h+=stepHTML(4,"Aplicar os ajustes escolhidos no app",
+    s4==="locked"?"Faça o passo 3":pend>0?`${pend} esperando`:"Em dia",
+    `<p>No app do celular, na aba <b>Esfriar</b>, você escolhe o que restringir. Se não houver o Shizuku no
+     celular, este botão aplica as escolhas pelo cabo.</p>`,
+    B("Aplicar ajustes","g","act('apply')",s4!=="now"||busy), s4);
+
+  // 5 medir
+  let s5 = !con && sc.phase!=="running" ? "locked" : "now", body5="", b5="";
+  const seg = `<span class="seg">${[5,10,15].map(m=>`<button class="${m===minutes?"sel":""}" onclick="minutes=${m};render()">${m} min</button>`).join("")}</span>`;
+  if(sc.phase==="running"){
+    const pct = sc.total? Math.min(100, sc.elapsed/sc.total*100):0;
+    const left = Math.max(0,(sc.total||0)-(sc.elapsed||0));
+    body5=`<p><b>Medindo…</b> ${con?"":"(o celular continua medindo sozinho) "}Faltam ~${Math.ceil(left/60)} min.
+      Pode tirar o cabo e usar o celular como sempre. Depois, conecte de novo.</p><div class="bar"><i style="width:${pct}%"></i></div>`;
+  } else if(sc.phase==="done"){
+    body5=`<p><b>Medição concluída!</b> Conecte o cabo e busque o resultado.</p>`;
+    b5=B("Ver resultado","o","act('collect')",!con||busy);
+  } else if(sc.phase==="rebooting"||sc.phase==="waiting"){
+    body5=`<p><b>Reiniciando…</b> Quando o celular ligar, <b>desbloqueie com o PIN</b> e espere aqui. A medição começa sozinha.</p>`;
+  } else {
+    body5=`<p><b>Reiniciar e medir</b> pega o aquecimento logo depois de ligar (o mais completo). <b>Medir agora</b> mede o uso normal.
+      Para o resultado ser justo, tire o cabo quando a medição começar.</p>`;
+    b5=seg+B("Reiniciar e medir","o",`act('boot',${minutes})`,!con||busy)+B("Medir agora","",`act('now',${minutes})`,!con||busy);
+  }
+  h+=stepHTML(5,"Medir o aquecimento", sc.phase==="running"?"Medindo":s5==="locked"?"Faça o passo 1":"", body5, b5, s5);
+
+  // 6 concluir
+  const s6 = !con ? "locked" : ph.dev_enabled ? "now" : "done";
+  h+=stepHTML(6,"Concluir: desligar o modo desenvolvedor",
+    s6==="locked"?"":s6==="done"?"Desligado":"",
+    `<p>Alguns apps de banco e do governo não abrem com o modo desenvolvedor ligado. Desligue quando terminar.
+     O app CalorScan continua funcionando normalmente.</p>`,
+    s6==="now"?B("Desligar modo desenvolvedor","r","act('devoff')",busy||sc.phase==="running"):"", s6);
+  $("#steps").innerHTML=h;
+
+  // log
+  const lg=$("#log");
+  lg.innerHTML = (st.busy?`⏳ ${st.busy}…<br>`:"") + (st.log||[]).slice(-3).join("<br>");
+  lg.classList.toggle("show", !!(st.busy || (st.log||[]).length));
+
+  renderResult(st.result);
+}
+
+function renderResult(r){
+  const el=$("#result");
+  if(!r){ el.innerHTML=`<h2>Resultado</h2><div class="empty"><svg width="48" height="66" viewBox="0 0 16 22" id="m2"></svg>
+    <p>Faça uma medição (passo 5) e o resultado aparece aqui, em português claro.</p></div>`;
+    $("#m2").innerHTML=$("#mascot").innerHTML; return; }
+  const maxS = Math.max(...r.top.map(t=>t.secs),1);
+  const tl=r.timeline||[]; let chart="";
+  if(tl.length>1){
+    const xs=tl.map(p=>p.up), x0=Math.min(...xs), x1=Math.max(...xs), lo=Math.min(...tl.map(p=>p.c))-1, hi=Math.max(...tl.map(p=>p.c))+.5;
+    const W=500,H=110,step=Math.max(1,Math.floor(tl.length/60));
+    const pts=tl.filter((_,i)=>i%step===0);
+    const bw=W/pts.length;
+    chart=`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`+
+      pts.map((p,i)=>{const h=(p.c-lo)/(hi-lo)*(H-8);const col=p.c>=43?"#ff5a4e":p.c>=40?"#ffb13d":"#62d26f";
+        return `<rect x="${i*bw}" y="${H-h}" width="${Math.max(1,bw-1)}" height="${h}" fill="${col}"><title>${p.up}s: ${p.c} °C</title></rect>`}).join("")+
+      `<line x1="0" x2="${W}" y1="${H-(43-lo)/(hi-lo)*(H-8)}" y2="${H-(43-lo)/(hi-lo)*(H-8)}" stroke="#2b2d42" stroke-dasharray="6 5" stroke-width="2"/></svg>
+      <div class="legend"><span>${r.boot?"Segundos desde que o celular ligou":"Tempo de medição"} →</span><span>tracejado = 43 °C</span></div>`;
+  }
+  el.innerHTML=`<h2>Resultado ${r.boot?"do boot":"do uso"} · ${r.model}</h2>
+    <div class="big"><span class="t" style="color:${r.peak>=43?"var(--red)":r.peak>=40?"var(--orange2)":"var(--green2)"}">${r.peak?.toFixed(1)} °C</span>
+      <span>pico da bateria</span></div>
+    ${chart}
+    ${r.findings.map(f=>`<div class="find ${f.level}"><div class="ic"></div><div><b>${f.title}</b><span>${f.text}</span></div></div>`).join("")}
+    <h2 style="margin-top:12px">Quem mais usou o processador</h2>
+    <div class="legend"><span><i style="background:var(--grey2)"></i>sistema</span><span><i style="background:var(--blue)"></i>Google</span>
+      <span><i style="background:var(--sun)"></i>Samsung</span><span><i style="background:var(--orange)"></i>apps</span></div>
+    ${r.top.map(t=>`<div class="proc"><span class="n" title="${t.name}">${t.name}${t.profiles>1?` ×${t.profiles}`:""}</span>
+      <div class="b ${t.kind}" style="width:${Math.max(3,t.secs/maxS*100)}%"></div><span>${t.secs}s</span></div>`).join("")}
+    <div class="btns" style="margin-top:14px">${B("Copiar resumo para IA","y","copyMd()")}${B("Salvar .md","","saveMd()")}
+      ${B("Abrir pasta","","fetch('/api/open-reports',{method:'POST'})")}</div>
+    <p style="font-size:13px;color:var(--muted);margin:10px 0 0">O resumo já vem com as instruções para a IA: é só colar no ChatGPT, Claude, Gemini…</p>`;
+}
+
+async function poll(){
+  try{ st = await (await fetch("/api/status")).json(); render(); }
+  catch{ $("#chipText").textContent="Programa fechado. Abra de novo."; }
+}
+mascot(null); poll(); setInterval(poll, 2500);
+</script>
+</body>
+</html>

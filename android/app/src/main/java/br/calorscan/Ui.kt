@@ -120,6 +120,7 @@ object Ui {
 
     fun card(ctx: Context, face: Int = WHITE): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
+        tag = face
         background = block(ctx, face)
         setPadding(ctx.dp(16), ctx.dp(14), ctx.dp(16), ctx.dp(19))
     }

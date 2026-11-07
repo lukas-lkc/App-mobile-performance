@@ -158,7 +158,7 @@ class GuardService : Service() {
         }
 
         fun start(ctx: Context) {
-            if (Store.monitorOn(ctx)) ctx.startForegroundService(Intent(ctx, GuardService::class.java))
+            if (Store.monitorOn(ctx)) runCatching { ctx.startForegroundService(Intent(ctx, GuardService::class.java)) }
         }
 
         fun stop(ctx: Context) = ctx.stopService(Intent(ctx, GuardService::class.java))

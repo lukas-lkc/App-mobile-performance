@@ -35,15 +35,15 @@ def nice(pkg: str) -> str:
     return NAMES.get(base) or NAMES.get(pkg) or base.split(".")[-1].replace("_", " ").capitalize()
 
 
-def kind(pkg: str) -> str:
-    if SYSTEM.match(pkg):
-        return "sistema"
-    if pkg.startswith(("com.google.", "com.android.vending")):
-        return "google"
+def kind(pkg: str, user: str = "u0_a") -> str:
     if pkg in ("com.sec.android.app.launcher", "com.touchtype.swiftkey", "com.samsung.android.honeyboard"):
         return "sistema"
-    if pkg.startswith(("com.samsung.", "com.sec.")):
+    if "." in pkg and pkg.startswith(("com.samsung.", "com.sec.")):
         return "samsung"
+    if "." in pkg and pkg.startswith(("com.google.", "com.android.vending")):
+        return "google"
+    if "." not in pkg or SYSTEM.match(pkg) or pkg.startswith("com.android.") or not re.match(r"u\d+_a", user):
+        return "sistema"
     return "app"
 
 
@@ -95,7 +95,8 @@ def analyze(folder):
         if r["name"].startswith("sh") or r["name"] in ("ps", "top", "dumpsys"):
             continue
         key = r["name"].split(":")[0]
-        g = groups.setdefault(key, {"name": nice(key), "pkg": key, "kind": kind(key), "secs": 0, "profiles": set()})
+        g = groups.setdefault(key, {"name": nice(key), "pkg": key, "kind": kind(key, r["user"]), "secs": 0,
+                                    "profiles": set()})
         g["secs"] += r["secs"]
         g["profiles"].add(r["profile"])
     top = sorted(groups.values(), key=lambda g: -g["secs"])
@@ -117,7 +118,7 @@ def analyze(folder):
                          "text": f"Começou em {first[1]:.1f} °C e terminou em {last[1]:.1f} °C. "
                                  f"Pior estado do sistema: {THERMAL.get(worst, worst)}"
                                  + (f" (a partir de {severe} s ligado)." if severe and boot_mode else ".")})
-    if up0 and rows:
+    if boot_mode and up0 and up0 < 900 and rows:
         cores = len(re.findall(r"^cpu\d+:", info, re.M)) or 8
         busy = total / (up0 * cores) * 100
         findings.append({"level": "danger" if busy > 50 else "warn",
@@ -132,7 +133,7 @@ def analyze(folder):
                          "text": f"Além do principal: {names}. Cada perfil inicia sua própria cópia dos serviços do "
                                  f"Google" + (f" (aqui, {google_profiles} cópias)" if google_profiles > 1 else "")
                                  + ". Pausar o perfil de trabalho quando não usa reduz isso."})
-    if autostart:
+    if autostart and boot_mode:
         findings.append({"level": "warn", "title": "Apps que iniciaram sozinhos",
                          "text": ", ".join(f"{g['name']} ({g['secs']} s)" for g in autostart)
                                  + ". Restrinja o segundo plano dos que não precisam de notificação na hora."})

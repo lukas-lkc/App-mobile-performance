@@ -214,7 +214,7 @@ function render(){
     s3==="locked"?"Faça o passo 2":s3==="done"?"Liberado":"Agora",
     `<p>Dá ao app as permissões que só podem ser liberadas pelo cabo: pausar o perfil de trabalho no horário,
      ajustar configurações e restringir apps. Elas continuam valendo depois que você desligar o modo desenvolvedor.
-     ${s3==="now"?"<br><b>Antes:</b> abra o app CalorScan no celular uma vez.":""}</p>`,
+</p>`,
     s3==="done"?"":B("Liberar app","g","act('grant')",s3!=="now"||busy), s3);
 
   // 4 aplicar

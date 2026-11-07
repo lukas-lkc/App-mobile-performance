@@ -31,7 +31,7 @@ push_script() {
 }
 
 bg_launch() { # bg_launch <dur_s> <interval_s> <boot>
-  adb shell "cd $REMOTE && setsid nohup sh thermal_scan.sh $1 $2 $REMOTE/out $3 > $REMOTE/log.txt 2>&1 < /dev/null &"
+  adb shell "setsid nohup sh $REMOTE/thermal_scan.sh $1 $2 $REMOTE/out $3 < /dev/null > $REMOTE/log.txt 2>&1 &"
 }
 
 launch() { # launch <minutos> <background:0|1>

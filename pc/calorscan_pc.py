@@ -202,7 +202,7 @@ class State:
         return info
 
     def fetch_plan(self):
-        out = self.adb.shell(f"am broadcast -a br.calorscan.PLAN -n {PKG}/.BridgeReceiver", timeout=15)
+        out = self.adb.shell(f"am broadcast -f 32 -a br.calorscan.PLAN -n {PKG}/.BridgeReceiver", timeout=15)
         m = re.search(r'data="([^"]*)"', out)
         if not m or not m.group(1):
             return None
@@ -249,13 +249,13 @@ def run_plan(plan):
         out = S.adb.shell(c, timeout=30)
         if "Exception" in out or "Error" in out:
             S.say("  aviso: " + out.strip()[:160])
-    S.adb.shell(f"am broadcast -a br.calorscan.APPLIED -n {PKG}/.BridgeReceiver --es id {plan.get('id', '')}")
+    S.adb.shell(f"am broadcast -f 32 -a br.calorscan.APPLIED -n {PKG}/.BridgeReceiver --es id {plan.get('id', '')}")
 
 
 def act_grant():
     plan = S.fetch_plan()
     if not plan:
-        raise RuntimeError("Abra o app CalorScan no celular uma vez e tente de novo.")
+        raise RuntimeError("O app não respondeu. Abra o CalorScan no celular uma vez e tente de novo.")
     run_plan(plan)
     S.say("App liberado e ajustes aplicados ✓")
 
@@ -270,8 +270,9 @@ def push_script():
 
 
 def launch_scan(minutes, boot):
-    S.adb.shell(f"cd {REMOTE} && setsid nohup sh thermal_scan.sh {minutes * 60} 10 {REMOTE}/out {1 if boot else 0} "
-                f"> {REMOTE}/log.txt 2>&1 < /dev/null &", timeout=15)
+    # comando simples em segundo plano com TODAS as saidas redirecionadas: o adb volta na hora
+    S.adb.shell(f"setsid nohup sh {REMOTE}/thermal_scan.sh {minutes * 60} 10 {REMOTE}/out {1 if boot else 0} "
+                f"< /dev/null > {REMOTE}/log.txt 2>&1 &", timeout=20)
 
 
 def act_boot(minutes=10):

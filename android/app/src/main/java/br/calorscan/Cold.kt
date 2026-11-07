@@ -120,7 +120,7 @@ object Cold {
             if (off && pkgEnabled(ctx, p)) c += "pm disable-user --user 0 $p"
             if (!off && !pkgEnabled(ctx, p)) c += "pm enable $p"
         }
-        if (!g.secure && wantScanOff(ctx) == scanOn(ctx)) {
+        if (!g.secure && scanTouched(ctx) && wantScanOff(ctx) == scanOn(ctx)) {
             val v = if (wantScanOff(ctx)) 0 else 1
             c += "settings put global wifi_scan_always_enabled $v"; c += "settings put global ble_scan_always_enabled $v"
         }
@@ -139,13 +139,26 @@ object Cold {
 
     /** O que da para fazer sem ajuda (depois de liberado): busca de Wi-Fi/Bluetooth. */
     fun applyDirect(ctx: Context): Boolean {
+        if (!scanTouched(ctx)) return false // so mexe se o usuario mudou essa opcao
         if (ctx.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return false
         val v = if (wantScanOff(ctx)) 0 else 1
         SCAN_KEYS.split("|").forEach { Settings.Global.putInt(ctx.contentResolver, it, v) }
         return true
     }
 
-    fun setWantScanOff(ctx: Context, v: Boolean) { Store.putBool(ctx, "want_scan_off", v); applyDirect(ctx) }
+    fun scanTouched(ctx: Context) = Store.getBool(ctx, "scan_touched")
+
+    fun setWantScanOff(ctx: Context, v: Boolean) {
+        if (!scanTouched(ctx)) { // guarda como estava para o "Desfazer tudo"
+            Store.putBool(ctx, "scan_orig_on", scanOn(ctx)); Store.putBool(ctx, "scan_touched", true)
+        }
+        Store.putBool(ctx, "want_scan_off", v); applyDirect(ctx)
+    }
+
+    /** Volta a busca de Wi-Fi/Bluetooth para como estava antes do app. */
+    fun undoScan(ctx: Context) {
+        if (scanTouched(ctx)) setWantScanOff(ctx, !Store.getBool(ctx, "scan_orig_on", true))
+    }
 
     // ------------------------------------------------------------- Shizuku
     fun shizukuRunning() = runCatching { Shizuku.pingBinder() }.getOrDefault(false)

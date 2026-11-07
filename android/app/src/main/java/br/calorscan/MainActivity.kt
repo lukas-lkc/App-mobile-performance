@@ -81,16 +81,17 @@ class MainActivity : Activity() {
         runCatching { Shizuku.addRequestPermissionResultListener(shizukuListener) }
         GuardService.start(this)
         Work.reschedule(this)
-        handleIntent(intent)
+        handleIntent(intent, build = false) // onResume monta a tela
     }
 
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleIntent(intent) }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleIntent(intent, build = true) }
 
-    private fun handleIntent(i: Intent) {
+    private fun handleIntent(i: Intent, build: Boolean) {
         if (i.getBooleanExtra("resume_work", false)) {
             Work.selected(this)?.let { Work.setPaused(this, it, false, interactive = true) }
         }
-        show(i.getIntExtra("tab", tab))
+        tab = i.getIntExtra("tab", tab)
+        if (build) show(tab)
     }
 
     override fun onResume() { super.onResume(); show(tab); handler.post(live) }
@@ -127,7 +128,10 @@ class MainActivity : Activity() {
     }
     private fun card(face: Int = Ui.WHITE, build: LinearLayout.() -> Unit) = add(Ui.card(this, face).apply(build))
     private fun LinearLayout.t(s: String, size: Float = 17f) = addView(Ui.title(this@MainActivity, s, size), Ui.lp(this@MainActivity, bottom = 4))
-    private fun LinearLayout.p(s: CharSequence, bottom: Int = 8) = addView(Ui.body(this@MainActivity, s), Ui.lp(this@MainActivity, bottom = bottom))
+    /** Texto: cinza nos cartoes brancos, escuro nos coloridos (contraste). */
+    private fun LinearLayout.p(s: CharSequence, bottom: Int = 8) = addView(
+        Ui.body(this@MainActivity, s, color = if ((tag as? Int ?: Ui.WHITE) == Ui.WHITE) Ui.MUTED else Ui.INK),
+        Ui.lp(this@MainActivity, bottom = bottom))
     private fun LinearLayout.btn(s: String, kind: Ui.Kind = Ui.Kind.BLUE_, top: Int = 6, f: () -> Unit) =
         addView(Ui.button(this@MainActivity, s, kind, f), Ui.lp(this@MainActivity, top = top, bottom = 4))
     private fun open(i: Intent) = runCatching { startActivity(i) }.onFailure { toast("Não consegui abrir essa tela neste celular") }
@@ -297,6 +301,7 @@ class MainActivity : Activity() {
                 val sel = Store.getSet(this, "sel_restrict")
                 val applied = Cold.restricted(this)
                 val master = Store.getBool(this, "boot_block", true)
+                if (items.isEmpty()) listBox.addView(Ui.body(this, "Nenhum app instalado por você foi encontrado."), Ui.lp(this, top = 6, bottom = 0))
                 items.forEach { a ->
                     val state = if (a.pkg in applied) "✓ restrito" else if (a.pkg in sel && master) "⏳ esperando aplicar" else null
                     listBox.addView(toggleRow(a.label, listOfNotNull(a.reason, state).joinToString(" · ").ifEmpty { null },
@@ -347,7 +352,7 @@ class MainActivity : Activity() {
             btn("Desfazer tudo", Ui.Kind.RED_) {
                 Store.putBool(this@MainActivity, "boot_block", false)
                 Cold.setWanted(this@MainActivity, emptySet()); Cold.setWantOff(this@MainActivity, emptySet())
-                Cold.setWantScanOff(this@MainActivity, false)
+                Cold.undoScan(this@MainActivity)
                 if (Cold.shizukuAllowed()) applyShizuku() else { toast("Marcado. Aplique pelo notebook ou Shizuku."); show(1) }
             }
         }

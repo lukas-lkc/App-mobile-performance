@@ -40,7 +40,7 @@ for /l %%n in (1,1,120) do (
   timeout /t 1 /nobreak >nul
 )
 :bootready
-adb shell "cd %REMOTE% && setsid nohup sh thermal_scan.sh %DUR% 10 %REMOTE%/out 1 > %REMOTE%/log.txt 2>&1 < /dev/null &"
+adb shell "setsid nohup sh %REMOTE%/thermal_scan.sh %DUR% 10 %REMOTE%/out 1 < /dev/null > %REMOTE%/log.txt 2>&1 &"
 timeout /t 2 /nobreak >nul
 for /f %%u in ('adb shell "cut -d. -f1 /proc/uptime"') do set UP=%%u
 echo.
@@ -51,7 +51,7 @@ exit /b 0
 
 :start
 call :push || exit /b 1
-adb shell "cd %REMOTE% && setsid nohup sh thermal_scan.sh %DUR% %INTERVAL% %REMOTE%/out 0 > %REMOTE%/log.txt 2>&1 < /dev/null &"
+adb shell "setsid nohup sh %REMOTE%/thermal_scan.sh %DUR% %INTERVAL% %REMOTE%/out 0 < /dev/null > %REMOTE%/log.txt 2>&1 &"
 echo Scan de %MIN% min iniciado.
 echo  -^> DESCONECTE o cabo e use o celular do jeito que costuma esquentar.
 echo  -^> Depois de %MIN% min, reconecte e rode: scan.bat collect

@@ -15,7 +15,7 @@ THERMAL_STATUS = {0: "nenhum", 1: "leve", 2: "moderado", 3: "severo",
 
 def read(p: Path) -> str:
     try:
-        return p.read_text(errors="replace")
+        return p.read_text(encoding="utf-8", errors="replace")
     except FileNotFoundError:
         return ""
 
@@ -222,7 +222,7 @@ def main(folder):
             "## dumpsys cpuinfo (fim do scan)", "```",
             "\n".join(read(d / "cpuinfo_end.txt").splitlines()[:30]), "```", ""]
 
-    (d / "RESUMO.md").write_text("\n".join(out))
+    (d / "RESUMO.md").write_text("\n".join(out), encoding="utf-8")
 
 
 if __name__ == "__main__":

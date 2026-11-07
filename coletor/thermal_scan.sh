@@ -13,6 +13,12 @@ BOOT=${4:-0}
 STATE=$BASE/state
 
 mkdir -p "$BASE"
+# nao deixa duas coletas rodarem ao mesmo tempo (uma apagaria a outra)
+if [ -f "$BASE/pid" ] && kill -0 "$(cat "$BASE/pid")" 2>/dev/null; then
+  echo "Ja existe uma coleta em andamento (pid $(cat "$BASE/pid")). Use status/collect."
+  exit 0
+fi
+echo $$ > "$BASE/pid"
 rm -rf "$OUT"
 mkdir -p "$OUT" || { echo "nao consegui criar $OUT"; exit 1; }
 

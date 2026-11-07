@@ -62,6 +62,9 @@ def parse_samples(text):
             continue
         s = {"n": int(m.group(1)), "t": int(m.group(2)), "zones": {},
              "hal": {}, "procs": []}
+        u = re.search(r"uptime=(\d+)", head)
+        if u:
+            s["uptime"] = int(u.group(1))
         sections = defaultdict(list)
         cur = None
         for l in body.splitlines():
@@ -82,6 +85,8 @@ def parse_samples(text):
                 s["plugged"] = l.split(" powered")[0]
             elif l.startswith("sys_current_now:"):
                 s["current_ua"] = int(l.split(":")[1])
+            elif l.startswith("sys_temp:") and "batt_temp" not in s:
+                s["batt_temp"] = int(l.split(":")[1]) / 10
         for l in sections["screen"]:
             if l.startswith("brightness:"):
                 s["brightness"] = l.split(":")[1].strip()
@@ -193,16 +198,22 @@ def main(folder):
 
         # linha do tempo
         out += ["## Linha do tempo", "",
-                "| t (s) | Bateria | Sensor + quente | Status | CPU usada | Top processo | App na tela |",
-                "|---:|---:|---|---:|---:|---|---|"]
+                "| t (s) | Ligado ha (s) | Bateria | Sensor + quente | Status | CPU usada | Top processo | App na tela |",
+                "|---:|---:|---:|---|---:|---:|---|---|"]
         for s in samples:
             hz = max(s["zones"].items(), key=lambda x: x[1]) if s["zones"] else ("-", 0)
             used = (f"{100 * (s['cpu_total'] - s['cpu_idle']) / s['cpu_total']:.0f}%"
                     if s["cpu_total"] else "-")
             top = f"{s['procs'][0][0][:40]} ({s['procs'][0][1]:.0f}%)" if s["procs"] else "-"
-            out.append(f"| {s['t']} | {s.get('batt_temp', '-')} | {hz[0]} {hz[1]:.1f} | "
+            out.append(f"| {s['t']} | {s.get('uptime', '-')} | {s.get('batt_temp', '-')} | {hz[0]} {hz[1]:.1f} | "
                        f"{s.get('thermal_status', '-')} | {used} | `{top}` | {s.get('fg', '-')} |")
         out.append("")
+
+    ct = read(d / "cputime_end.txt")
+    if ct:
+        out += ["## Processos que mais gastaram CPU desde que o celular ligou",
+                "(TIME = tempo total de processador; %CPU = media desde que o processo iniciou)",
+                "```", "\n".join(ct.splitlines()[:35]), "```", ""]
 
     out += ["## Consumo estimado de bateria por app (batterystats)", "```",
             extract(bs, r"Estimated power use", 45), "```", "",

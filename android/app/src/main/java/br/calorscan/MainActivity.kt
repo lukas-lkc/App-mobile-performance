@@ -17,7 +17,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.text.InputType
 import android.widget.Button
+import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -36,6 +39,8 @@ class MainActivity : Activity() {
     private lateinit var btnStop: Button
     private lateinit var summary: TextView
     private lateinit var exportRow: LinearLayout
+    private lateinit var ghStatus: TextView
+    private lateinit var tokenField: EditText
 
     private val refresher = object : Runnable {
         override fun run() { refresh(); handler.postDelayed(this, 3000) }
@@ -102,6 +107,18 @@ class MainActivity : Activity() {
         )
         col.addView(startRow)
         col.addView(button("Até eu parar (máx. 24 h)") { start(24 * 60) }.also { it.tag = "long" })
+        col.addView(CheckBox(this).apply {
+            text = "Monitorar sozinho toda vez que o celular ligar (20 min)"
+            isChecked = Session.settings(this@MainActivity).getBoolean("auto_boot", false)
+            setOnCheckedChangeListener { _, on ->
+                Session.settings(this@MainActivity).edit().putBoolean("auto_boot", on).apply()
+                if (on) Toast.makeText(
+                    this@MainActivity,
+                    "Pronto! Reinicie o celular. Ao desbloquear, o monitoramento começa sozinho.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        })
         btnStop = button("Parar monitoramento") {
             startService(Intent(this, MonitorService::class.java).setAction(MonitorService.ACTION_STOP))
             handler.postDelayed({ refresh(); showSummary() }, 500)
@@ -117,6 +134,17 @@ class MainActivity : Activity() {
         col.addView(button("Atualizar resumo") { showSummary() })
         summary = text(13f).apply { typeface = Typeface.MONOSPACE; setTextIsSelectable(true) }
         col.addView(summary)
+
+        col.addView(text(16f, true).apply { text = "Envio direto para o Claude (GitHub)" })
+        ghStatus = text(14f)
+        col.addView(ghStatus)
+        tokenField = EditText(this).apply {
+            hint = "Cole aqui o token do GitHub"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+        }
+        col.addView(tokenField)
+        col.addView(button("Salvar e testar token") { saveToken() })
 
         setContentView(ScrollView(this).apply { addView(col) })
 
@@ -172,6 +200,27 @@ class MainActivity : Activity() {
             if (running) View.GONE else View.VISIBLE
         btnStop.visibility = if (running) View.VISIBLE else View.GONE
         exportRow.visibility = if (n > 0) View.VISIBLE else View.GONE
+        ghStatus.text = if (Uploader.configured(this))
+            "✅ Configurado: \"Enviar relatório\" manda direto para o Claude, e o monitoramento ao ligar envia sozinho." +
+                if (n > 0 && !running && Session.uploaded(this)) "\nÚltimo relatório já enviado." else ""
+        else "Sem token: \"Enviar relatório\" abre o menu de compartilhar. Veja no README como criar o token."
+    }
+
+    private fun saveToken() {
+        val t = tokenField.text.toString().trim()
+        if (t.isEmpty()) return
+        Toast.makeText(this, "Testando…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val r = Uploader.check(t)
+            runOnUiThread {
+                if (r.ok) {
+                    Session.settings(this).edit().putString("gh_token", t).apply()
+                    tokenField.setText("")
+                }
+                Toast.makeText(this, r.text, Toast.LENGTH_LONG).show()
+                refresh()
+            }
+        }.start()
     }
 
     private fun start(minutes: Int) {
@@ -201,6 +250,21 @@ class MainActivity : Activity() {
     }
 
     private fun export() {
+        if (Uploader.configured(this)) {
+            Toast.makeText(this, "Enviando para o GitHub…", Toast.LENGTH_SHORT).show()
+            Thread {
+                val r = Uploader.uploadReport(this)
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        if (r.ok) "Enviado ✅ É só avisar o Claude." else "Falha no envio: ${r.text}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    refresh()
+                }
+            }.start()
+            return
+        }
         Toast.makeText(this, "Gerando relatório…", Toast.LENGTH_SHORT).show()
         Thread {
             val uri = runCatching { Report(this).export() }.getOrNull()

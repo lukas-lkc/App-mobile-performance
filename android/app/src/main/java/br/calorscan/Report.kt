@@ -75,7 +75,7 @@ class Report(private val ctx: Context) {
                 val p = samples[i - 1]
                 val dt = (s.getLong("t") - p.getLong("t")) / 60000.0
                 val pt = p.optDouble("batt_c")
-                if (!pt.isNaN() && dt > 0 && dt < 3 * Session.INTERVAL_MS / 60000.0 && key(p) == k) {
+                if (!pt.isNaN() && dt > 0 && dt < 3 * Session.interval(ctx) / 60000.0 && key(p) == k) {
                     a.dTemp += t - pt; a.dMin += dt
                 }
             }
@@ -149,7 +149,7 @@ class Report(private val ctx: Context) {
         val start = Session.startTime(ctx)
         val end = Session.endTime(ctx)
         val r = JSONObject()
-        r.put("app", "CalorScan 1.1")
+        r.put("app", "CalorScan 1.2")
         r.put("generated", iso(System.currentTimeMillis()))
         r.put("device", JSONObject().apply {
             put("manufacturer", Build.MANUFACTURER); put("model", Build.MODEL); put("device", Build.DEVICE)
@@ -162,7 +162,9 @@ class Report(private val ctx: Context) {
         r.put("session", JSONObject().apply {
             put("start", iso(start)); put("end", iso(end))
             put("minutes", ((end - start) / 60000.0).roundToInt())
-            put("interval_s", Session.INTERVAL_MS / 1000); put("samples", samples.size)
+            put("interval_s", Session.interval(ctx) / 1000); put("samples", samples.size)
+            put("started_at_boot", Session.isBoot(ctx))
+            put("uptime_at_start_s", Session.uptimeAtStart(ctx))
         })
         r.put("summary_text", summary(samples, start, end))
 
@@ -268,6 +270,15 @@ class Report(private val ctx: Context) {
         val minutes = (end - start) / 60000.0
         sb.appendLine("CALOR SCAN · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}")
         sb.appendLine("Período: ${hm(start)}–${hm(end)} (${minutes.roundToInt()} min, ${samples.size} amostras)")
+        if (Session.isBoot(ctx)) {
+            sb.appendLine("Iniciado automaticamente ao ligar (${Session.uptimeAtStart(ctx)} s após ligar)")
+            val first = samples.firstOrNull { !it.optDouble("batt_c").isNaN() }
+            val peak = samples.maxByOrNull { it.optDouble("batt_c", 0.0) }
+            if (first != null && peak != null) {
+                sb.appendLine("Ao ligar: ${first.optDouble("batt_c")} °C → pico ${peak.optDouble("batt_c")} °C " +
+                    "aos ${peak.optLong("uptime_s") / 60} min ligado")
+            }
+        }
         if (temps.isNotEmpty()) {
             sb.appendLine("Bateria: mín ${temps.min()} °C · média ${r1(temps.average())} °C · máx ${temps.max()} °C")
             val per = minutes / samples.size

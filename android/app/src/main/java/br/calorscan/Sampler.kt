@@ -67,6 +67,7 @@ class Sampler(private val ctx: Context) {
         val now = System.currentTimeMillis()
         val o = JSONObject()
         o.put("t", now)
+        o.put("uptime_s", android.os.SystemClock.elapsedRealtime() / 1000)
 
         val b = battery()
         o.put("batt_c", batteryTempC(b))

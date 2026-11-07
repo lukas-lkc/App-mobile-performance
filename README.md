@@ -22,10 +22,33 @@ O relatório gerado é lido pelo Claude para fazer o diagnóstico.
 3. Escolha **30 min, 1 h, 3 h** ou **Até eu parar**.
 4. Use o celular normalmente, **sem carregar** e do jeito que ele costuma esquentar. Uma notificação
    mostra a temperatura atual.
-5. No fim, toque em **Enviar relatório** → *Drive* (ou WhatsApp, e-mail…). Uma cópia também fica em
+5. No fim, toque em **Enviar relatório**. Com o token configurado (abaixo), vai direto para o Claude; sem token, escolha *Drive*, WhatsApp, e-mail… Uma cópia também fica em
    *Downloads/CalorScan*.
 6. Mande o arquivo `.json` para o Claude no chat (ou salve no Google Drive e avise). Se preferir,
    **Copiar resumo** e cole o texto no chat.
+
+### Monitorar desde que o celular liga
+Marque **"Monitorar sozinho toda vez que o celular ligar"** e reinicie o celular. Ao desbloquear,
+o app começa sozinho a coletar (a cada 10 s, por 20 min) e, se o envio direto estiver configurado,
+manda o relatório ao terminar, sem você abrir nada.
+
+> Para ver **qual processo** gasta CPU ao ligar (atualizações, indexação, IA da Samsung), use o
+> modo com cabo: `./scan.sh boot` (abaixo). O app comum não enxerga outros processos.
+
+## Envio direto para o Claude (token do GitHub — uma vez só)
+
+Os relatórios vão para a pasta `reports/` deste repositório, onde o Claude lê direto.
+**Deixe o repositório privado**, porque os relatórios mostram quais apps você usa.
+
+1. No GitHub: foto de perfil → *Settings → Developer settings → Personal access tokens*.
+2. **Se o repositório é seu:** *Fine-grained tokens → Generate new token* → *Repository access:
+   Only select repositories* → `App-mobile-performance` → *Permissions → Contents: **Read and write***
+   → *Generate token*.
+   **Se você é colaboradora no repositório de outra pessoa:** *Tokens (classic) → Generate new token*
+   → marque **repo** → *Generate token*.
+3. Copie o token (começa com `github_pat_` ou `ghp_`):
+   - **App:** cole em *Envio direto para o Claude* → **Salvar e testar token**.
+   - **Notebook (modo cabo):** salve num arquivo `.github_token` na pasta do projeto (ele não vai para o Git).
 
 ### O que o app consegue ver
 
@@ -56,7 +79,7 @@ térmicos da Samsung. Exige ativar a Depuração USB e ter um computador (ou o T
 
 ## O que é coletado (scanner ADB)
 
-A cada 15 s, durante o tempo que você escolher:
+A cada 15 s (10 s no modo boot), durante o tempo que você escolher:
 
 | Dado | Para quê |
 |---|---|
@@ -67,7 +90,8 @@ A cada 15 s, durante o tempo que você escolher:
 | Frequência de cada núcleo e uso da GPU | carga de processamento/gráfico |
 | Carregando ou não, corrente da bateria | descartar o carregador como causa |
 
-No fim, também: os serviços térmicos da Samsung (`sdhms`/`ssrm`) e configurações do One UI
+Também: CPU acumulada por processo desde que o celular ligou (início e fim), registros de
+temperatura/otimização de apps/indexação do sistema, os serviços térmicos da Samsung (`sdhms`/`ssrm`) e configurações do One UI
 (taxa de atualização 60/120 Hz, Proteção da bateria, Game Booster, busca Wi-Fi/Bluetooth em segundo plano), consumo de bateria estimado por app, *wakelocks* (apps que não deixam
 o celular dormir), alarmes, sensores ligados e estatísticas de processos.
 
@@ -99,6 +123,19 @@ Conecte o cabo, aceite o aviso "Permitir depuração USB?" no celular e confira 
 
 ### 3. Rode o scan
 
+**Aquecimento logo depois de ligar** (o mais completo):
+
+```bash
+./scan.sh boot 15       # Windows: scan.bat boot 15
+```
+
+O celular **reinicia sozinho**. Desbloqueie quando pedir. A coleta começa uns 20 s depois de
+ligar, a cada 10 s. Quando aparecer *"Coleta iniciada"*, **desconecte o cabo**. Depois de 15 min,
+reconecte e rode `./scan.sh collect`. O relatório inclui quanto de CPU **cada processo** gastou
+desde que o celular ligou, então dá para pegar até o que já terminou antes da coleta começar.
+
+**Aquecimento durante o uso:**
+
 ```bash
 ./scan.sh start 20      # Windows: scan.bat start 20
 ```
@@ -115,11 +152,8 @@ Conecte o cabo, aceite o aviso "Permitir depuração USB?" no celular e confira 
 
 ### 4. Envie para o Claude ler
 
-```bash
-git add reports && git commit -m "scan" && git push
-```
-
-e peça: *"lê o último relatório em reports/ e me diz o que está esquentando o celular"*.
+Com o `.github_token` configurado, o `collect` **envia sozinho** para `reports/adb/` no GitHub. É só
+avisar o Claude. Sem token, anexe a pasta do relatório no chat.
 
 Se tiver Python, o `collect` também gera um `RESUMO.md` legível na pasta do relatório.
 

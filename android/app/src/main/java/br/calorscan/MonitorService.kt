@@ -19,17 +19,30 @@ import java.io.File
 /** Guarda as amostras da sessao atual em disco (uma linha JSON por amostra). */
 object Session {
     const val INTERVAL_MS = 20_000L
+    const val BOOT_INTERVAL_MS = 10_000L
     private const val PREFS = "session"
 
     fun file(ctx: Context) = File(ctx.filesDir, "samples.jsonl")
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun start(ctx: Context, durationMs: Long) {
+    fun start(ctx: Context, durationMs: Long, boot: Boolean = false) {
         file(ctx).delete()
         val now = System.currentTimeMillis()
         prefs(ctx).edit().putLong("start", now).putLong("planned_end", now + durationMs)
-            .putLong("end", 0).putBoolean("running", true).apply()
+            .putLong("end", 0).putBoolean("running", true).putBoolean("boot", boot)
+            .putLong("interval", if (boot) BOOT_INTERVAL_MS else INTERVAL_MS)
+            .putLong("uptime_start", android.os.SystemClock.elapsedRealtime() / 1000)
+            .putBoolean("uploaded", false).apply()
     }
+
+    fun markUploaded(ctx: Context) = prefs(ctx).edit().putBoolean("uploaded", true).apply()
+    fun uploaded(ctx: Context) = prefs(ctx).getBoolean("uploaded", false)
+    fun interval(ctx: Context) = prefs(ctx).getLong("interval", INTERVAL_MS)
+    fun isBoot(ctx: Context) = prefs(ctx).getBoolean("boot", false)
+    fun uptimeAtStart(ctx: Context) = prefs(ctx).getLong("uptime_start", -1)
+
+    /** Configuracoes do usuario. */
+    fun settings(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     fun stop(ctx: Context) {
         prefs(ctx).edit().putLong("end", System.currentTimeMillis()).putBoolean("running", false).apply()
@@ -67,7 +80,7 @@ class MonitorService : Service() {
                 notify("${s.optDouble("batt_c")} °C · $count amostras")
             } catch (_: Exception) {
             }
-            handler.postDelayed(this, Session.INTERVAL_MS)
+            handler.postDelayed(this, Session.interval(this@MonitorService))
         }
     }
 
@@ -105,14 +118,27 @@ class MonitorService : Service() {
         handler.removeCallbacks(tick)
         Session.stop(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
+        if (Uploader.configured(this)) {
+            // envia sozinho para o GitHub, sem precisar abrir o app
+            Thread {
+                val msg = Uploader.uploadReport(this)
+                doneNotification(if (msg.ok) "Relatório enviado ao GitHub ✅" else "Falha no envio: ${msg.text}")
+                stopSelf()
+            }.start()
+        } else {
+            doneNotification("Abra o app e toque em Enviar relatório.")
+            stopSelf()
+        }
+    }
+
+    private fun doneNotification(text: String) {
         getSystemService(NotificationManager::class.java).notify(
             NOTIF_ID + 1,
             Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_launcher)
                 .setContentTitle("Calor Scan: monitoramento concluído")
-                .setContentText("Abra o app para exportar o relatório.")
+                .setContentText(text)
                 .setContentIntent(openApp()).setAutoCancel(true).build()
         )
-        stopSelf()
     }
 
     override fun onDestroy() {

@@ -2,17 +2,32 @@
 # Roda DENTRO do Android (via adb shell). Coleta dados de temperatura, CPU,
 # GPU, app em primeiro plano, wakelocks e consumo de bateria por app.
 #
-# Uso: sh thermal_scan.sh [duracao_seg] [intervalo_seg] [pasta_saida]
+# Uso: sh thermal_scan.sh [duracao_seg] [intervalo_seg] [pasta_saida] [boot]
+#   boot = 1 quando iniciado logo apos ligar o celular (scan.sh boot)
 
 DUR=${1:-900}
 INT=${2:-15}
 BASE=/data/local/tmp/thermal_scan
 OUT=${3:-$BASE/out}
+BOOT=${4:-0}
 STATE=$BASE/state
 
 mkdir -p "$BASE"
 rm -rf "$OUT"
 mkdir -p "$OUT" || { echo "nao consegui criar $OUT"; exit 1; }
+
+uptime_s() { cut -d. -f1 /proc/uptime; }
+
+# CPU acumulada por processo desde que cada um iniciou (TIME) e media de uso (%CPU).
+# Logo apos ligar, mostra quem gastou mais processador durante a inicializacao.
+cputime() {
+  echo "### ps (uptime $(uptime_s)s, boot_completed=$(getprop sys.boot_completed))"
+  if ps -A -k -TIME -o PID >/dev/null 2>&1; then
+    ps -A -o PID,PPID,USER,TIME,%CPU,NAME,ARGS -k -TIME | head -80
+  else
+    ps -A -o PID,PPID,USER,TIME,%CPU,NAME,ARGS
+  fi
+}
 
 snap() { # snap <arquivo> <comando...>
   f=$1; shift
@@ -24,6 +39,9 @@ snap() { # snap <arquivo> <comando...>
   echo "scan_start: $(date '+%Y-%m-%d %H:%M:%S %z')"
   echo "duration_s: $DUR"
   echo "interval_s: $INT"
+  echo "boot_mode: $BOOT"
+  echo "uptime_at_start_s: $(uptime_s)"
+  echo "boot_completed_at_start: $(getprop sys.boot_completed)"
   for p in ro.product.manufacturer ro.product.model ro.product.device \
            ro.build.version.release ro.build.version.sdk ro.build.display.id \
            ro.board.platform ro.soc.manufacturer ro.soc.model ro.hardware; do
@@ -62,6 +80,7 @@ snap() { # snap <arquivo> <comando...>
 snap battery_start      dumpsys battery
 snap thermal_start      dumpsys thermalservice
 snap cpuinfo_start      dumpsys cpuinfo
+cputime > "$OUT/cputime_start.txt" 2>&1
 
 echo "running 0" > "$STATE"
 
@@ -74,9 +93,9 @@ while [ "$(date +%s)" -lt "$end" ]; do
   i=$((i + 1))
   t0=$(date +%s)
   {
-    echo "=== SAMPLE $i t=$((t0 - start)) epoch=$t0 ==="
+    echo "=== SAMPLE $i t=$((t0 - start)) epoch=$t0 uptime=$(uptime_s) boot_completed=$(getprop sys.boot_completed) ==="
     echo "--- battery"
-    dumpsys battery | grep -E 'powered|status:|level:|temperature:|voltage:|current'
+    dumpsys battery 2>/dev/null | grep -E 'powered|status:|level:|temperature:|voltage:|current'
     for f in current_now temp; do
       v=$(cat /sys/class/power_supply/battery/$f 2>/dev/null) && echo "sys_$f: $v"
     done
@@ -118,6 +137,12 @@ snap procstats          dumpsys procstats --hours 3
 snap alarm              dumpsys alarm
 snap sensorservice      dumpsys sensorservice
 snap batterystats       dumpsys batterystats
+cputime > "$OUT/cputime_end.txt" 2>&1
+snap jobs               sh -c "dumpsys jobscheduler | grep -E 'Running|Pending|JOB #' | head -300"
+# eventos de temperatura, otimizacao de apps e indexacao registrados desde que ligou
+logcat -d -b main,system,events 2>/dev/null | \
+  grep -iE 'thermal|throttl|ssrm|sdhms|dex2oat|dexopt|bg-dexopt|mediascan|MediaProvider|indexing|Bixby|scs|smartsuggest|languagemodel' | \
+  tail -3000 > "$OUT/logcat_filtrado.txt"
 
 # servicos proprios do fabricante (Samsung: sdhms/ssrm = gerenciamento termico e de bateria)
 {

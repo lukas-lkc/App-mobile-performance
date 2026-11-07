@@ -1,13 +1,60 @@
-# App Mobile Performance — o que está esquentando meu celular?
+# Calor Scan — o que está esquentando meu celular?
 
-Ferramenta que varre um celular **Android** durante o uso normal e registra tudo que
-costuma causar aquecimento. Os relatórios ficam em `reports/` para o Claude ler e
-diagnosticar.
+App Android que monitora o celular enquanto você usa e aponta o que o faz esquentar.
+O relatório gerado é lido pelo Claude para fazer o diagnóstico.
 
-> **iPhone:** o iOS não permite que nenhum app ou ferramenta veja o consumo de
-> outros apps, então este scanner é só para Android.
+> **iPhone:** o iOS não permite ver o que outros apps fazem, então é só para Android.
 
-## O que é coletado
+## Instalar o app (Samsung Galaxy S24 e outros Android 10+)
+
+1. **Samsung (One UI 6+):** *Configurações → Segurança e privacidade →* **Bloqueador automático** →
+   desative por enquanto. Ele impede instalar apps de fora da Play Store.
+2. No celular, abra este repositório no GitHub, entre na pasta [`apk/`](apk/) →
+   `CalorScan.apk` → **Download** (ou "View raw").
+3. Abra o arquivo baixado. Se pedir, permita que o navegador ou "Meus Arquivos" **instale apps
+   desconhecidos**. O Play Protect pode avisar que o app é desconhecido → *Mais detalhes →
+   Instalar assim mesmo*.
+
+## Usar
+
+1. Abra o **Calor Scan** e toque em **Permitir acesso aos dados de uso** → ative *Calor Scan*.
+2. Toque em **Permitir rodar em segundo plano** (senão a Samsung fecha o app).
+3. Escolha **30 min, 1 h, 3 h** ou **Até eu parar**.
+4. Use o celular normalmente, **sem carregar** e do jeito que ele costuma esquentar. Uma notificação
+   mostra a temperatura atual.
+5. No fim, toque em **Enviar relatório** → *Drive* (ou WhatsApp, e-mail…). Uma cópia também fica em
+   *Downloads/CalorScan*.
+6. Mande o arquivo `.json` para o Claude no chat (ou salve no Google Drive e avise). Se preferir,
+   **Copiar resumo** e cole o texto no chat.
+
+### O que o app consegue ver
+
+| Dado | Para quê |
+|---|---|
+| Temperatura da bateria a cada 20 s, estado térmico e margem até o limite (throttling) | quando e quanto esquenta |
+| App aberto na tela em cada momento | qual app esquenta e quantos °C por 10 min |
+| Apps rodando em segundo plano (serviços ativos) | o que trabalha escondido |
+| Internet por app (em primeiro e em segundo plano) | sincronizações e uploads ocultos |
+| Câmera em uso, áudio tocando, localização, Wi-Fi, Bluetooth | sensores que esquentam |
+| Brilho, taxa de atualização (60/120 Hz), carregando ou não, % de bateria | outros fatores |
+
+O Android **não permite** que um app comum veja quanta CPU cada outro app usa. Para isso existe o
+modo avançado com computador (abaixo), que lê os dados direto do sistema via ADB.
+
+**Privacidade:** o app não lê mensagens, fotos, contatos ou localização, e não envia nada sozinho.
+O relatório só sai do celular quando você toca em *Enviar relatório*.
+
+O código do app fica em [`android/`](android/). Para recompilar, rode `cd android && ./gradlew assembleRelease`
+(é preciso ter o Android SDK).
+
+---
+
+# Modo avançado: scanner via ADB (com computador)
+
+Coleta muito mais detalhes: uso de CPU por processo, sensores internos de temperatura e serviços
+térmicos da Samsung. Exige ativar a Depuração USB e ter um computador (ou o Termux).
+
+## O que é coletado (scanner ADB)
 
 A cada 15 s, durante o tempo que você escolher:
 
@@ -28,7 +75,7 @@ o celular dormir), alarmes, sensores ligados e estatísticas de processos.
 aparecem em nomes de sincronização são substituídos por `<email>`. A lista de apps
 instalados aparece nos dados — mantenha este repositório **privado**.
 
-## Como usar
+## Como usar o scanner ADB
 
 ### 1. Prepare o celular (uma vez) — Samsung Galaxy (S24 e outros com One UI)
 1. *Configurações → Segurança e privacidade → **Bloqueador automático*** → **desative**.
@@ -86,6 +133,8 @@ Se tiver Python, o `collect` também gera um `RESUMO.md` legível na pasta do re
 ## Estrutura
 
 ```
+apk/CalorScan.apk         app pronto para instalar
+android/                  codigo do app
 scan.sh / scan.bat        comandos no computador (start, status, collect, run)
 coletor/thermal_scan.sh   roda dentro do celular e coleta os dados
 analisar.py               gera RESUMO.md a partir de um relatório

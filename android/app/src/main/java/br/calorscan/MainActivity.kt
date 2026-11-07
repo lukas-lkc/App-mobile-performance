@@ -397,23 +397,34 @@ class MainActivity : Activity() {
             addView(toggleRow("Agendar", "Liga e pausa sozinho nos horários abaixo", Work.enabled(this@MainActivity)) { v ->
                 Work.setEnabled(this@MainActivity, v); show(2)
             })
+            p("Toque no dia para ativar ou desativar. Toque em um horário para escolher outro.", 4)
             val days = Work.days(this@MainActivity)
             Work.DAY_NAMES.forEach { (d, name) ->
                 val day = days[d]!!
-                val dayBtn = Ui.button(this@MainActivity, name, if (day.on) Ui.Kind.SUN_ else Ui.Kind.WHITE_) {
+                val dayBtn = Ui.button(this@MainActivity, if (day.on) "✓ $name" else name, if (day.on) Ui.Kind.SUN_ else Ui.Kind.WHITE_) {
                     Work.setDay(this@MainActivity, d, day.copy(on = !day.on)); show(2)
                 }
-                val startBtn = Ui.button(this@MainActivity, "Liga ${hhmm(day.start)}", Ui.Kind.WHITE_) {
-                    pickTime(day.start) { Work.setDay(this@MainActivity, d, day.copy(start = it, on = true)); show(2) }
-                }.apply { isEnabled = day.on; textSize = 13.5f }
-                val endBtn = Ui.button(this@MainActivity, "Pausa ${hhmm(day.end)}", Ui.Kind.WHITE_) {
-                    pickTime(day.end) { Work.setDay(this@MainActivity, d, day.copy(end = it, on = true)); show(2) }
-                }.apply { isEnabled = day.on; textSize = 13.5f }
+                fun timeBtn(label: String, min: Int, start: Boolean) =
+                    Ui.button(this@MainActivity, "$label\n${hhmm(min)} ✏️", Ui.Kind.WHITE_) {
+                        pickTime(min) { m ->
+                            val nd = if (start) day.copy(start = m, on = true) else day.copy(end = m, on = true)
+                            if (nd.end <= nd.start) {
+                                toast("A pausa precisa ser depois do horário de ligar (${hhmm(nd.start)}).")
+                            } else {
+                                Work.setDay(this@MainActivity, d, nd)
+                                toast("$name: liga às ${hhmm(nd.start)} e pausa às ${hhmm(nd.end)}")
+                            }
+                            show(2)
+                        }
+                    }.apply {
+                        textSize = 13.5f; setLineSpacing(0f, 0.95f)
+                        alpha = if (day.on) 1f else 0.55f // dia desligado: ainda da para tocar (e ativa o dia)
+                    }
                 addView(LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                    addView(dayBtn, LinearLayout.LayoutParams(dp(70), -2))
-                    addView(startBtn, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
-                    addView(endBtn, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
+                    addView(dayBtn, LinearLayout.LayoutParams(dp(74), -2))
+                    addView(timeBtn("Liga às", day.start, true), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
+                    addView(timeBtn("Pausa às", day.end, false), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
                 }, Ui.lp(this@MainActivity, top = 4, bottom = 4))
             }
             val nx = if (Work.enabled(this@MainActivity)) Work.next(this@MainActivity) else null

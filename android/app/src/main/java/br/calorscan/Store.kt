@@ -56,6 +56,26 @@ object Store {
         return samples(ctx, bootAt - 5_000)
     }
 
+    /** Chamado quando o monitor inicia. Conta quantas vezes ele recomecou no mesmo boot (= foi fechado). */
+    fun serviceStarted(ctx: Context) {
+        val p = prefs(ctx)
+        val bootAt = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+        val sameBoot = kotlin.math.abs(p.getLong("svc_boot", 0) - bootAt) < 60_000
+        p.edit().putLong("svc_boot", bootAt)
+            .putInt("svc_restarts", if (sameBoot && p.getBoolean("svc_running", false)) p.getInt("svc_restarts", 0) + 1
+                                    else if (sameBoot) p.getInt("svc_restarts", 0) else 0)
+            .putBoolean("svc_running", true).apply()
+    }
+
+    /** Parada de proposito (chave "Monitorar sempre" desligada): nao conta como fechado pelo sistema. */
+    fun serviceStopped(ctx: Context) = prefs(ctx).edit().putBoolean("svc_running", false).apply()
+
+    fun serviceRestarts(ctx: Context): Int {
+        val p = prefs(ctx)
+        val bootAt = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+        return if (kotlin.math.abs(p.getLong("svc_boot", 0) - bootAt) < 60_000) p.getInt("svc_restarts", 0) else 0
+    }
+
     // ------------------------------------------------------------- configuracoes
     fun monitorOn(ctx: Context) = prefs(ctx).getBoolean("monitor", true)
     fun setMonitor(ctx: Context, v: Boolean) = prefs(ctx).edit().putBoolean("monitor", v).apply()

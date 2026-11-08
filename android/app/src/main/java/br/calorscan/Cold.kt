@@ -77,8 +77,8 @@ object Cold {
 
     // ------------------------------------------------------------- permissoes
     data class Grants(val secure: Boolean, val quiet: Boolean, val usage: Boolean, val alarm: Boolean,
-                      val battery: Boolean, val notif: Boolean) {
-        val all get() = secure && quiet && usage && alarm && battery && notif
+                      val battery: Boolean, val notif: Boolean, val dump: Boolean = false) {
+        val all get() = secure && quiet && usage && alarm && battery && notif && dump
     }
 
     fun grants(ctx: Context): Grants {
@@ -90,7 +90,7 @@ object Cold {
             has(Manifest.permission.WRITE_SECURE_SETTINGS), has("android.permission.MODIFY_QUIET_MODE"), usage,
             ctx.getSystemService(AlarmManager::class.java).canScheduleExactAlarms(),
             ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName),
-            Build.VERSION.SDK_INT < 33 || has(Manifest.permission.POST_NOTIFICATIONS))
+            Build.VERSION.SDK_INT < 33 || has(Manifest.permission.POST_NOTIFICATIONS), Live.PERMS.all { has(it) })
     }
 
     // ------------------------------------------------------------- plano de comandos
@@ -103,6 +103,8 @@ object Cold {
         if (!g.secure) c += "pm grant $me android.permission.WRITE_SECURE_SETTINGS"
         if (!g.quiet) c += "pm grant $me android.permission.MODIFY_QUIET_MODE"
         if (!g.notif) c += "pm grant $me android.permission.POST_NOTIFICATIONS"
+        // ver quem usa o processador (painel e ranking)
+        Live.PERMS.filter { ctx.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }.forEach { c += "pm grant $me $it" }
         if (!g.usage) c += "appops set $me GET_USAGE_STATS allow"
         if (!g.alarm) c += "appops set $me SCHEDULE_EXACT_ALARM allow"
         if (!g.battery) c += "dumpsys deviceidle whitelist +$me"
@@ -179,9 +181,21 @@ object Cold {
     fun applyWithShizuku(ctx: Context): String {
         val plan = plan(ctx)
         if (plan.commands.isEmpty()) return "Nada para aplicar: está tudo em dia ✓"
+        val failedPkgs = mutableSetOf<String>()
         var fails = 0
-        plan.commands.forEach { if (runCatching { sh(it) }.getOrDefault(1) != 0) fails++ }
+        plan.commands.forEach { c ->
+            if (runCatching { sh(c) }.getOrDefault(1) != 0) {
+                fails++
+                Regex("^(?:cmd appops set|am set-standby-bucket) (\\S+)").find(c)?.let { failedPkgs += it.groupValues[1] }
+            }
+        }
         markApplied(ctx, plan.id)
+        if (failedPkgs.isNotEmpty()) { // nao marca como "restrito" o que nao funcionou: fica pendente para tentar de novo
+            val wantNow = wanted(ctx)
+            val applied = restricted(ctx).toMutableSet()
+            failedPkgs.forEach { p -> if (p in wantNow) applied -= p else applied += p }
+            Store.putSet(ctx, "applied_restrict", applied)
+        }
         return if (fails == 0) "Pronto! ${plan.commands.size} ajustes aplicados ✓" else "Aplicado, mas $fails comando(s) falharam."
     }
 }

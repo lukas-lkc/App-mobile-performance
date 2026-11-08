@@ -22,17 +22,37 @@ NAMES = {
     "surfaceflinger": "Desenho da tela", "com.sec.android.app.launcher": "Tela inicial",
     "com.android.systemui": "Barra e notificações", "com.touchtype.swiftkey": "Teclado SwiftKey",
     "com.samsung.android.honeyboard": "Teclado Samsung", "com.google.android.inputmethod.latin": "Gboard",
+    "com.elgin.smart": "Elgin Smart", "br.com.intelbras.mibocam": "Mibo Smart (Intelbras)",
+    "com.samsung.android.oneconnect": "SmartThings", "com.sec.android.easyMover": "Smart Switch",
+    "com.tuya.smartlife": "Smart Life", "com.samsung.android.smartsuggestions": "Sugestões inteligentes (Samsung)",
 }
+# ultimo pedaco do pacote que sozinho nao diz nada ("com.elgin.smart" virava so "Smart")
+GENERIC = {"smart", "app", "android", "mobile", "client", "main", "home", "pro", "lite", "free", "br", "brasil"}
 SYSTEM = re.compile(r"^(system_server|surfaceflinger|zygote|installd|logd|lmkd|statsd|init|keystore|ueventd|"
                     r"android\.|vendor\.|audioserver|cameraserver|media|\[|com\.android\.(systemui|phone|"
                     r"providers)|android\.process)")
-PROFILE = {"0": "principal", "12": "perfil de trabalho", "150": "Pasta Segura"}
+PROFILE = {"0": "principal"}
+
+
+def profile_name(p: str) -> str:
+    """Numero do perfil do Android -> nome. Samsung: Pasta Segura usa 150 em diante; perfis de trabalho, 10 a 149."""
+    try:
+        n = int(p)
+    except ValueError:
+        return f"perfil {p}"
+    return "principal" if n == 0 else "Pasta Segura" if n >= 150 else "perfil de trabalho"
 THERMAL = {0: "normal", 1: "leve", 2: "moderado", 3: "severo", 4: "crítico", 5: "emergência", 6: "desligando"}
 
 
 def nice(pkg: str) -> str:
     base = pkg.split(":")[0]
-    return NAMES.get(base) or NAMES.get(pkg) or base.split(".")[-1].replace("_", " ").capitalize()
+    if NAMES.get(base) or NAMES.get(pkg):
+        return NAMES.get(base) or NAMES.get(pkg)
+    parts = base.split(".")
+    last = parts[-1].replace("_", " ")
+    if last.lower() in GENERIC and len(parts) >= 2:
+        return f"{parts[-2].replace('_', ' ').capitalize()} {last}"
+    return last.capitalize()
 
 
 def kind(pkg: str, user: str = "u0_a") -> str:
@@ -128,11 +148,16 @@ def analyze(folder):
                                              for k, label in [("sistema", "sistema Android"), ("google", "Google"),
                                                               ("app", "apps"), ("samsung", "Samsung")]) + "."})
     if profiles:
-        names = ", ".join(PROFILE.get(p, f"perfil {p}") for p in profiles)
+        kinds = [profile_name(p) for p in profiles]
+        tips = []
+        if "perfil de trabalho" in kinds:
+            tips.append("Pausar o perfil de trabalho quando não usa reduz isso.")
+        if "Pasta Segura" in kinds:
+            tips.append("Deixar a Pasta Segura trancada e desativar dentro dela os apps que você não usa reduz isso.")
         findings.append({"level": "warn", "title": f"O celular liga {len(profiles) + 1} perfis juntos",
-                         "text": f"Além do principal: {names}. Cada perfil inicia sua própria cópia dos serviços do "
+                         "text": f"Além do principal: {', '.join(kinds)}. Cada perfil inicia sua própria cópia dos serviços do "
                                  f"Google" + (f" (aqui, {google_profiles} cópias)" if google_profiles > 1 else "")
-                                 + ". Pausar o perfil de trabalho quando não usa reduz isso."})
+                                 + ". " + " ".join(tips)})
     if autostart and boot_mode:
         findings.append({"level": "warn", "title": "Apps que iniciaram sozinhos",
                          "text": ", ".join(f"{g['name']} ({g['secs']} s)" for g in autostart)

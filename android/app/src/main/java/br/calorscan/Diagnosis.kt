@@ -23,6 +23,12 @@ object Diagnosis {
     private val labels = HashMap<String, String>()
 
     fun mood(t: Double) = when {
+        // concorda com "bateria" (feminino): "Bateria fresquinha", "bateria morna"
+        t < 35 -> "fresquinha"; t < 40 -> "morna"; t < 43 -> "quente"; else -> "muito quente"
+    }
+
+    /** Para "Celular ..." (masculino): "Celular fresquinho", "celular morno". */
+    fun moodPhone(t: Double) = when {
         t < 35 -> "fresquinho"; t < 40 -> "morno"; t < 43 -> "quente"; else -> "muito quente"
     }
 
@@ -62,11 +68,29 @@ object Diagnosis {
             val first = bootWin.first()
             val lvl = if (peak.c >= 43) Finding.DANGER else if (peak.c >= 40) Finding.WARN else Finding.OK
             out += Finding(lvl, "Depois de ligar: pico de ${f1(peak.c)} °C",
-                "Aos ${peak.up / 60} min ${peak.up % 60} s ligado (primeira leitura: ${f1(first.c)} °C aos ${first.up} s). " +
+                "${peak.up / 60} min ${peak.up % 60} s depois de ligar (primeira leitura: ${f1(first.c)} °C aos ${first.up} s). " +
                     if (peak.c >= 40) "É a fase em que tudo inicia junto. Veja em Esfriar quais apps iniciam sozinhos." else "Normal.",
                 if (peak.c >= 40) 1 else -1)
         } else if (up < 900) {
             out += Finding(Finding.INFO, "Celular ligou há ${up / 60} min", "Medindo a fase de inicialização…")
+        }
+
+        // 1b. o celular fechou o monitor? (o servico precisou recomecar depois de ja estar rodando)
+        val kills = Store.serviceRestarts(ctx)
+        if (Store.monitorOn(ctx) && kills > 0) {
+            out += Finding(Finding.WARN, "O celular fechou o monitor $kills vez(es)",
+                "Desde que ligou, o Android/Samsung fechou o CalorScan e as medições pararam por um tempo. " +
+                    "Na Samsung: Configurações → Apps → CalorScan → Bateria → “Sem restrições”. Passo a passo na aba Config.", 4)
+        }
+
+        // 1c. apps (instalados por voce) que mais usaram o processador ao ligar
+        val bootApps = CpuRank.top(ctx, boot = true, n = 20)
+            .map { (k, s) -> CpuRank.describeKey(ctx, k).let { (name, kind) -> Triple(name, kind, s) } }
+            .filter { it.second == "app" && it.third >= 3 }
+        if (bootApps.isNotEmpty()) {
+            out += Finding(Finding.WARN, "Apps que mais trabalharam ao ligar",
+                bootApps.take(5).joinToString(", ") { "${it.first} (${it.third.roundToInt()} s)" } +
+                    ". Se não precisam avisar na hora, marque em Esfriar para não iniciarem sozinhos.", 1)
         }
 
         // 2. hoje
@@ -95,7 +119,7 @@ object Diagnosis {
         val ch = today.filter { it.plug }; val nch = today.filter { !it.plug }
         if (ch.size >= 5 && nch.size >= 5) {
             val diff = ch.map { it.c }.average() - nch.map { it.c }.average()
-            if (diff >= 1.5) out += Finding(Finding.INFO, "Carregando fica ${f1(diff)} °C mais quente",
+            if (diff >= 1.5) out += Finding(Finding.INFO, "Carregando, o celular fica ${f1(diff)} °C mais quente",
                 "Evite jogar ou gravar vídeo enquanto carrega. Ligar \"Proteger bateria\" também ajuda.")
         }
 
@@ -108,11 +132,19 @@ object Diagnosis {
         }
 
         // 6. perfis
-        val profiles = Work.profiles(ctx)
+        val profiles = Work.allProfiles(ctx)
         if (profiles.isNotEmpty()) {
+            val work = Work.profiles(ctx).isNotEmpty()
+            val sf = Work.secureFolder(ctx) != null
+            // so fala do que existe neste celular
+            val tip = listOfNotNull(
+                if (work) "Pausar o perfil de trabalho fora do expediente alivia o celular." else null,
+                if (sf) "Deixar a Pasta Segura trancada e desativar dentro dela o que você não usa também alivia." else null,
+            ).joinToString(" ")
             out += Finding(Finding.INFO, "O celular roda ${profiles.size + 1} perfis",
-                "Cada perfil (trabalho, Pasta Segura…) inicia sua própria cópia dos serviços do Google. " +
-                    "Pausar o perfil de trabalho fora do expediente alivia o celular.", 2)
+                "Além do principal: ${profiles.joinToString(", ") { Work.profileName(ctx, it) }}. " +
+                    "Cada perfil inicia sua própria cópia dos serviços do Google. $tip",
+                if (work) 2 else if (sf) 5 else -1)
         }
 
         // 7. Samsung
@@ -179,11 +211,22 @@ object Diagnosis {
         findings(ctx).forEach { sb.appendLine("- **${it.title}** — ${it.text}") }
         sb.appendLine().appendLine("## Ajustes já feitos")
         val r = Cold.restricted(ctx)
-        sb.appendLine("- Apps restringidos em segundo plano: " +
+        sb.appendLine("- Apps restritos em segundo plano: " +
             if (r.isEmpty()) "nenhum" else r.joinToString(", ") { label(ctx, it) })
         sb.appendLine("- Exceções (precisam de notificação na hora): " +
             Cold.exceptions(ctx).joinToString(", ") { label(ctx, it) }.ifEmpty { "nenhuma" })
-        sb.appendLine("- Perfis extras: ${Work.profiles(ctx).size}")
+        sb.appendLine("- Perfis extras: " + Work.allProfiles(ctx).joinToString(", ") { Work.profileName(ctx, it) }.ifEmpty { "nenhum" })
+        for ((isBoot, title) in listOf(true to "Quem mais usou o processador nos primeiros 15 min depois de ligar",
+                                       false to "Quem mais usou o processador hoje")) {
+            val r = CpuRank.top(ctx, isBoot, 12)
+            if (r.isNotEmpty()) {
+                sb.appendLine().appendLine("## $title (segundos de processador)")
+                r.forEach { (n, s) ->
+                    val (name, kind) = CpuRank.describeKey(ctx, n)
+                    sb.appendLine("- $name (`$n`, $kind): ${s.roundToInt()} s")
+                }
+            }
+        }
         val boot = Store.bootSamples(ctx).filter { it.up <= 900 }
         if (boot.isNotEmpty()) {
             sb.appendLine().appendLine("## Temperatura depois de ligar (s ligado → °C)")

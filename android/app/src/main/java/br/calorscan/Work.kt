@@ -22,10 +22,67 @@ object Work {
 
     val DAY_NAMES = mapOf(2 to "Seg", 3 to "Ter", 4 to "Qua", 5 to "Qui", 6 to "Sex", 7 to "Sáb", 1 to "Dom")
 
-    fun profiles(ctx: Context): List<UserHandle> {
+    /** Todos os perfis extras (trabalho, Pasta Segura, Espaço privado...). */
+    fun allProfiles(ctx: Context): List<UserHandle> {
         val um = ctx.getSystemService(UserManager::class.java)
         return um.userProfiles.filter { it != Process.myUserHandle() }
     }
+
+    /**
+     * So os perfis de TRABALHO. No Android 15+ a Pasta Segura da Samsung e o Espaco privado tambem aparecem
+     * como "perfil" e o app pausava o perfil errado. O tipo vem do "dumpsys user" (com a permissao de leitura)
+     * ou do Android 15 (LauncherApps); sem nenhum dos dois, descarta os numeros da Pasta Segura (150 em diante).
+     */
+    fun profiles(ctx: Context): List<UserHandle> {
+        val all = allProfiles(ctx)
+        val types = profileTypes(ctx)
+        return all.filter { u ->
+            val t = types[serial(ctx, u)] ?: launcherType(ctx, u)
+            if (t != null) t.endsWith("profile.MANAGED") else serial(ctx, u) < 150
+        }
+    }
+
+    /** A Pasta Segura da Samsung, se existir. */
+    fun secureFolder(ctx: Context): UserHandle? = allProfiles(ctx).firstOrNull { profileName(ctx, it) == "Pasta Segura" }
+
+    /** Nome amigavel de qualquer perfil. */
+    fun profileName(ctx: Context, u: UserHandle): String {
+        val t = profileTypes(ctx)[serial(ctx, u)] ?: launcherType(ctx, u) ?: ""
+        val s = serial(ctx, u)
+        return when {
+            t.endsWith("profile.MANAGED") -> "Perfil de trabalho"
+            s >= 150 || t.contains("SECURE", true) -> "Pasta Segura"
+            t.endsWith("profile.PRIVATE") -> "Espaço privado"
+            t.endsWith("profile.CLONE") -> "Apps duplicados"
+            else -> "Perfil $s"
+        }
+    }
+
+    private fun serial(ctx: Context, u: UserHandle) = ctx.getSystemService(UserManager::class.java).getSerialNumberForUser(u)
+
+    private var typesCache: Pair<Long, Map<Long, String>>? = null
+
+    /** serial do perfil -> tipo ("android.os.usertype.profile.MANAGED"...), pelo "dumpsys user". */
+    private fun profileTypes(ctx: Context): Map<Long, String> {
+        typesCache?.let { if (System.currentTimeMillis() - it.first < 60_000) return it.second }
+        if (ctx.checkSelfPermission("android.permission.DUMP") != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyMap()
+        val out = runCatching {
+            val p = ProcessBuilder("/system/bin/dumpsys", "user").redirectErrorStream(true).start()
+            val t = p.inputStream.bufferedReader().readText(); p.waitFor(); t
+        }.getOrDefault("")
+        val map = HashMap<Long, String>()
+        var cur: Long? = null
+        out.lineSequence().forEach { l ->
+            Regex("""UserInfo\{\d+:.*?\} serialNo=(\d+)""").find(l)?.let { cur = it.groupValues[1].toLong() }
+            Regex("""^\s*Type: (android\.os\.usertype\.\S+)""").find(l)?.let { m -> cur?.let { map.putIfAbsent(it, m.groupValues[1]) } }
+        }
+        typesCache = System.currentTimeMillis() to map
+        return map
+    }
+
+    private fun launcherType(ctx: Context, u: UserHandle): String? = if (Build.VERSION.SDK_INT >= 35) runCatching {
+        ctx.getSystemService(LauncherApps::class.java).getLauncherUserInfo(u)?.userType
+    }.getOrNull() else null
 
     fun profileApps(ctx: Context, user: UserHandle): List<String> = runCatching {
         ctx.getSystemService(LauncherApps::class.java).getActivityList(null, user).map { it.label.toString() }.distinct()
@@ -62,7 +119,10 @@ object Work {
 
     // ------------------------------------------------------------- agenda
     fun enabled(ctx: Context) = Store.getBool(ctx, "work_sched_on")
-    fun setEnabled(ctx: Context, v: Boolean) { Store.putBool(ctx, "work_sched_on", v); reschedule(ctx) }
+    fun setEnabled(ctx: Context, v: Boolean) {
+        Store.putBool(ctx, "work_sched_on", v); reschedule(ctx)
+        if (v) enforce(ctx, !shouldBeOn(ctx)) // ja aplica o horario de agora (antes esperava o proximo alarme)
+    }
 
     fun days(ctx: Context): Map<Int, Day> {
         val o = Store.getStr(ctx, "work_days")?.let { JSONObject(it) }
@@ -81,6 +141,7 @@ object Work {
         }
         Store.putStr(ctx, "work_days", o.toString())
         reschedule(ctx)
+        if (enabled(ctx)) enforce(ctx, !shouldBeOn(ctx))
     }
 
     /** Proximo evento: (hora em ms, pausar?) */

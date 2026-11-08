@@ -48,13 +48,18 @@ class GuardService : Service() {
     }
     private val thermal = PowerManager.OnThermalStatusChangedListener { maybeSave(force = true) }
 
+    private val bg = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val tick = object : Runnable {
         override fun run() {
             maybeSave(force = true)
             val boot = SystemClock.elapsedRealtime() < 15 * 60_000
+            // ranking de quem usa o processador (no boot a cada 30 s; depois a cada 1 min)
+            if (Live.canSeeApps(this@GuardService) && (!boot || ++rankTick % 3 == 0))
+                bg.execute { runCatching { CpuRank.sample(this@GuardService) } }
             handler.postDelayed(this, if (boot) 10_000 else 60_000)
         }
     }
+    private var rankTick = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -69,6 +74,7 @@ class GuardService : Service() {
         registerReceiver(battery, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         pm.addThermalStatusListener(mainExecutor, thermal)
         handler.post(tick)
+        Store.serviceStarted(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -77,7 +83,9 @@ class GuardService : Service() {
     }
 
     override fun onDestroy() {
+        Store.serviceStopped(this) // onDestroy so roda em parada normal; se o sistema matar o processo, nao roda
         handler.removeCallbacksAndMessages(null)
+        bg.shutdownNow()
         runCatching { unregisterReceiver(battery) }
         pm.removeThermalStatusListener(thermal)
         super.onDestroy()
@@ -111,7 +119,7 @@ class GuardService : Service() {
     }
 
     private fun updateNotification(t: Double, st: Int) {
-        val text = String.format(Locale("pt", "BR"), "%.1f °C · %s", t, Diagnosis.mood(t))
+        val text = String.format(Locale("pt", "BR"), "%.1f °C · bateria %s", t, Diagnosis.mood(t))
         if (text == lastText) return
         lastText = text
         getSystemService(NotificationManager::class.java)

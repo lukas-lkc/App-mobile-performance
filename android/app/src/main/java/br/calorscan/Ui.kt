@@ -18,11 +18,52 @@ import android.widget.TextView
 
 /** Tema "blocos": cores fortes, bordas grossas e sombra solida embaixo. */
 object Ui {
-    const val INK = 0xFF2B2D42.toInt()
-    const val SKY1 = 0xFF7FD3FF.toInt()
-    const val SKY2 = 0xFFC6EFFF.toInt()
-    const val GRASS = 0xFF62D26F.toInt()
-    const val GRASS2 = 0xFF3FA452.toInt()
+    // ---- cores que mudam com o tema (claro = dia no ceu azul; escuro = noite) ----
+    var dark = false; private set
+    var INK = 0xFF2B2D42.toInt(); private set      // bordas e sombras dos blocos
+    var TEXT = 0xFF2B2D42.toInt(); private set     // texto principal
+    var MUTED = 0xFF5D6177.toInt(); private set    // texto secundario
+    var WHITE = Color.WHITE; private set           // cor dos cartoes
+    var SKY1 = 0xFF7FD3FF.toInt(); private set
+    var SKY2 = 0xFFC6EFFF.toInt(); private set
+    var GRASS = 0xFF62D26F.toInt(); private set
+    var GRASS2 = 0xFF3FA452.toInt(); private set
+    var GREY = 0xFFCFD5DD.toInt(); private set
+    var GREY2 = 0xFF9AA3AD.toInt(); private set
+    var EMPTY = 0xFFE9EEF5.toInt(); private set    // blocos vazios dos medidores
+    var CHART = 0xFFF3F8FF.toInt(); private set    // fundo dos graficos
+    // cartoes de destaque em azul (no lugar do amarelo e do verde)
+    var HILITE = 0xFF9ED8FB.toInt(); private set   // destaque / esperando (era amarelo)
+    var GOOD = 0xFF4FB3F4.toInt(); private set     // tudo certo / ativo (era verde)
+    const val PAPER = Color.WHITE                  // branco de verdade (texto em botao colorido)
+
+    fun setDark(d: Boolean) {
+        dark = d
+        if (d) {
+            INK = 0xFF0C0E1C.toInt(); TEXT = 0xFFEEF0FA.toInt(); MUTED = 0xFFA9AFCB.toInt()
+            WHITE = 0xFF262B48.toInt(); SKY1 = 0xFF0F1530.toInt(); SKY2 = 0xFF27305A.toInt()
+            GRASS = 0xFF2F7D46.toInt(); GRASS2 = 0xFF1E5A31.toInt()
+            GREY = 0xFF454B6E.toInt(); GREY2 = 0xFF6A7096.toInt(); EMPTY = 0xFF353A5C.toInt(); CHART = 0xFF1C2140.toInt()
+            HILITE = 0xFF2C4F86.toInt(); GOOD = 0xFF1F6FB2.toInt()
+        } else {
+            INK = 0xFF2B2D42.toInt(); TEXT = INK; MUTED = 0xFF5D6177.toInt()
+            WHITE = Color.WHITE; SKY1 = 0xFF7FD3FF.toInt(); SKY2 = 0xFFC6EFFF.toInt()
+            GRASS = 0xFF62D26F.toInt(); GRASS2 = 0xFF3FA452.toInt()
+            GREY = 0xFFCFD5DD.toInt(); GREY2 = 0xFF9AA3AD.toInt(); EMPTY = 0xFFE9EEF5.toInt(); CHART = 0xFFF3F8FF.toInt()
+            HILITE = 0xFF9ED8FB.toInt(); GOOD = 0xFF4FB3F4.toInt()
+        }
+    }
+
+    /** Tema "Ao vivo": a cor do ceu vem da hora e do tempo. */
+    fun setSky(top: Int, bottom: Int) { SKY1 = top; SKY2 = bottom }
+
+    /** Texto que vai em cima de um cartao: escuro nos coloridos (amarelo, verde...), do tema nos normais. */
+    /** Texto legivel em cima de qualquer cartao: claro nos fundos escuros, escuro nos claros. */
+    fun textOn(face: Int) = if (face == WHITE) TEXT else if (lum(face) < 0.42) 0xFFF2F5FF.toInt() else 0xFF1E2A44.toInt()
+    fun mutedOn(face: Int) = if (face == WHITE) MUTED else if (lum(face) < 0.42) 0xFFC9D8F2.toInt() else 0xFF26375A.toInt()
+    private fun lum(c: Int) = (0.299 * (c shr 16 and 255) + 0.587 * (c shr 8 and 255) + 0.114 * (c and 255)) / 255
+
+    // ---- cores de destaque: iguais nos dois temas ----
     const val DIRT = 0xFFB7794A.toInt()
     const val SUN = 0xFFFFD23F.toInt()
     const val SUN2 = 0xFFE0A800.toInt()
@@ -34,10 +75,6 @@ object Ui {
     const val ORANGE2 = 0xFFD26B12.toInt()
     const val RED = 0xFFFF5A4E.toInt()
     const val RED2 = 0xFFC2342A.toInt()
-    const val GREY = 0xFFCFD5DD.toInt()
-    const val GREY2 = 0xFF9AA3AD.toInt()
-    const val MUTED = 0xFF5D6177.toInt()
-    const val WHITE = Color.WHITE
 
     val HEAD: Typeface = Typeface.create("sans-serif-black", Typeface.NORMAL)
     val BODY: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -90,9 +127,12 @@ object Ui {
         }
     }
 
-    enum class Kind(val face: Int, val side: Int, val text: Int) {
-        BLUE_(BLUE, BLUE2, WHITE), GREEN_(GREEN, GREEN2, WHITE), ORANGE_(ORANGE, ORANGE2, WHITE),
-        RED_(RED, RED2, WHITE), SUN_(SUN, SUN2, INK), WHITE_(WHITE, GREY2, INK)
+    /** Tipos de botao. As cores sao lidas na hora (o botao "branco" vira escuro no tema escuro). */
+    enum class Kind {
+        BLUE_, GREEN_, ORANGE_, RED_, SUN_, WHITE_;
+        val face get() = when (this) { BLUE_ -> BLUE; GREEN_ -> GREEN; ORANGE_ -> ORANGE; RED_ -> RED; SUN_ -> SUN; WHITE_ -> WHITE }
+        val side get() = when (this) { BLUE_ -> BLUE2; GREEN_ -> GREEN2; ORANGE_ -> ORANGE2; RED_ -> RED2; SUN_ -> SUN2; WHITE_ -> GREY2 }
+        val text get() = when (this) { SUN_ -> 0xFF2B2D42.toInt(); WHITE_ -> TEXT; else -> PAPER }
     }
 
     fun button(ctx: Context, label: String, kind: Kind = Kind.BLUE_, onClick: () -> Unit): Button =
@@ -109,7 +149,7 @@ object Ui {
             setOnClickListener { onClick() }
         }
 
-    fun title(ctx: Context, s: String, size: Float = 18f, color: Int = INK) = TextView(ctx).apply {
+    fun title(ctx: Context, s: String, size: Float = 18f, color: Int = TEXT) = TextView(ctx).apply {
         text = s; typeface = HEAD; textSize = size; setTextColor(color)
     }
 
@@ -144,6 +184,104 @@ object Ui {
                 if (i > 0) leftMargin = ctx.dp(gap)
             })
         }
+    }
+}
+
+/**
+ * Botao do tema, em blocos: no tema claro mostra a LUA (toque para a noite); no escuro, o SOL (toque para o dia).
+ * Desenhado em uma grade 12x12, igual ao mascote.
+ */
+class ThemeToggle(ctx: Context) : View(ctx) {
+    /** Tema atual: "light" mostra o sol, "dark" a lua, "live" o sol com nuvem. */
+    var mode = "light"
+        set(v) { field = v; invalidate() }
+    private val p = Paint()
+    private val d = ctx.resources.displayMetrics.density
+
+    init { isClickable = true; contentDescription = "Escolher tema" }
+
+    override fun onDraw(c: Canvas) {
+        val s = 3 * d
+        val w = width.toFloat(); val h = height.toFloat() - 4 * d
+        // bloco com sombra
+        p.style = Paint.Style.FILL
+        p.color = Ui.INK; c.drawRoundRect(0f, 4 * d, w, h + 4 * d, 7 * d, 7 * d, p)
+        p.color = if (Ui.dark) 0xFF2E3560.toInt() else Ui.PAPER; c.drawRoundRect(0f, 0f, w, h, 7 * d, 7 * d, p)
+        p.style = Paint.Style.STROKE; p.strokeWidth = s; p.color = Ui.INK
+        c.drawRoundRect(s / 2, s / 2, w - s / 2, h - s / 2, 7 * d, 7 * d, p)
+        p.style = Paint.Style.FILL
+        // grade de pixels
+        val u = (minOf(w, h) - 14 * d) / 12f
+        val ox = (w - 12 * u) / 2; val oy = (h - 12 * u) / 2
+        fun px(x: Int, y: Int, color: Int) { p.color = color; c.drawRect(ox + x * u, oy + y * u, ox + (x + 1) * u, oy + (y + 1) * u, p) }
+        if (mode != "dark") {
+            // SOL: miolo amarelo com borda laranja e 8 raios (no "ao vivo", com uma nuvem na frente)
+            for (y in 4..7) for (x in 4..7) px(x, y, Ui.SUN)
+            for (i in 4..7) { px(i, 3, Ui.SUN2); px(i, 8, Ui.SUN2); px(3, i, Ui.SUN2); px(8, i, Ui.SUN2) }
+            px(4, 4, 0xFFFFF1A8.toInt()); px(5, 4, 0xFFFFF1A8.toInt()); px(4, 5, 0xFFFFF1A8.toInt())
+            for (i in 5..6) { px(i, 0, Ui.SUN); px(i, 11, Ui.SUN); px(0, i, Ui.SUN); px(11, i, Ui.SUN) }
+            listOf(1 to 1, 10 to 1, 1 to 10, 10 to 10, 2 to 2, 9 to 2, 2 to 9, 9 to 9).forEach { (x, y) -> px(x, y, Ui.ORANGE) }
+            if (mode == "live") {
+                listOf("..XXX.....", ".XXXXXXX..", "XXXXXXXXXX").forEachIndexed { r, line ->
+                    line.forEachIndexed { col, ch -> if (ch == 'X') px(col + 2, r + 8, 0xFFE9EEF8.toInt()) }
+                }
+                for (x in 2..11) px(x, 11, 0xFF9AA6C9.toInt())
+            }
+        } else {
+            // LUA: circulo menos um circulo deslocado = crescente, com 2 crateras e estrelinhas
+            for (y in 0..11) for (x in 0..11) {
+                val inA = (x - 5.5) * (x - 5.5) + (y - 6.0) * (y - 6.0) <= 22.0
+                val inB = (x - 8.2) * (x - 8.2) + (y - 4.2) * (y - 4.2) <= 17.0
+                if (inA && !inB) px(x, y, 0xFF8E97C9.toInt())
+            }
+            for (y in 0..11) for (x in 0..11) {
+                val inA = (x - 5.5) * (x - 5.5) + (y - 6.0) * (y - 6.0) <= 16.0
+                val inB = (x - 8.2) * (x - 8.2) + (y - 4.2) * (y - 4.2) <= 21.0
+                if (inA && !inB) px(x, y, 0xFFF4E7B5.toInt())
+            }
+            px(3, 7, 0xFFD9CA8E.toInt()); px(4, 9, 0xFFD9CA8E.toInt())
+            px(10, 9, Ui.SUN); px(11, 1, Ui.SUN); px(8, 11, 0xFFB8C2F0.toInt())
+        }
+    }
+}
+
+/** Medidor de 10 blocos (como no CalorScan PC). */
+class MeterView(ctx: Context) : View(ctx) {
+    var pct = 0.0
+        set(v) { field = v; invalidate() }
+    var color = Ui.GREEN
+        set(v) { field = v; invalidate() }
+    private val p = Paint()
+    private val d = ctx.resources.displayMetrics.density
+
+    override fun onMeasure(w: Int, h: Int) = setMeasuredDimension(MeasureSpec.getSize(w), (14 * d).toInt())
+
+    override fun onDraw(c: Canvas) {
+        val gap = 3 * d
+        val bw = (width - gap * 9) / 10f
+        val on = Math.round(pct / 10).toInt()
+        for (i in 0 until 10) {
+            val x = i * (bw + gap)
+            p.color = Ui.INK; c.drawRect(x, 0f, x + bw, height.toFloat(), p)
+            p.color = if (i < on) color else Ui.EMPTY
+            c.drawRect(x + 2 * d, 2 * d, x + bw - 2 * d, height - 2 * d, p)
+        }
+    }
+
+    companion object {
+        fun levelColor(pct: Double) = when { pct >= 85 -> Ui.RED; pct >= 60 -> Ui.ORANGE; pct >= 35 -> Ui.SUN; else -> Ui.GREEN }
+    }
+}
+
+/** Barra horizontal com borda (lista de quem usa o processador). */
+class BarView(ctx: Context, private val frac: Float, private val fill: Int) : View(ctx) {
+    private val p = Paint()
+    private val d = ctx.resources.displayMetrics.density
+    override fun onMeasure(w: Int, h: Int) = setMeasuredDimension(MeasureSpec.getSize(w), (16 * d).toInt())
+    override fun onDraw(c: Canvas) {
+        val w = (width * frac.coerceIn(0.03f, 1f))
+        p.color = Ui.INK; c.drawRect(0f, 0f, w, height.toFloat(), p)
+        p.color = fill; c.drawRect(2 * d, 2 * d, w - 2 * d, height - 2 * d, p)
     }
 }
 
@@ -230,7 +368,7 @@ class ChartView(ctx: Context) : View(ctx) {
 
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
-        p.style = Paint.Style.FILL; p.color = 0xFFF3F8FF.toInt()
+        p.style = Paint.Style.FILL; p.color = Ui.CHART
         c.drawRoundRect(0f, 0f, w, h, 6 * d, 6 * d, p)
         if (points.size >= 2) {
             val lo = (points.min() - 1).coerceAtMost(36.0)

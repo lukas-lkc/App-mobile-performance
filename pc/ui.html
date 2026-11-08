@@ -91,13 +91,111 @@ svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);bord
   display:none;box-shadow:0 5px 0 rgba(0,0,0,.25)}
 .log.show{display:block}
 .empty{text-align:center;color:var(--muted);padding:24px 8px}
-.mascot{animation:bob 1.6s ease-in-out infinite}
+/* mascote pula/treme so alguns segundos: animacao infinita redesenha a janela sem parar e pesa no PC */
+.mascot{animation:bob 1.6s ease-in-out 3}
 @keyframes bob{50%{transform:translateY(-5px)}}
-.mascot.hot{animation:shake .35s linear infinite}
+.mascot.hot{animation:shake .35s linear 8}
 @keyframes shake{25%{transform:translate(-2px,0)}75%{transform:translate(2px,0)}}
 @media (prefers-reduced-motion:reduce){.mascot,.mascot.hot{animation:none}}
 .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--sun);border:3px solid var(--ink);
-  box-shadow:0 5px 0 var(--ink);padding:8px 16px;font-family:var(--head);border-radius:6px;z-index:5;display:none}
+  box-shadow:0 5px 0 var(--ink);padding:8px 16px;font-family:var(--head);border-radius:6px;z-index:50;display:none;max-width:90vw}
+
+/* ---------- abas ---------- */
+.tabs{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.tabs>button{background:#fff;color:var(--ink);box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink);font-size:17px;padding:9px 18px}
+.tabs>button.sel{background:var(--sun);box-shadow:0 6px 0 var(--sun2),0 6px 0 3px var(--ink)}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;background:var(--ink);padding:6px;border-radius:8px;
+  box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.subtabs button{background:transparent;border:3px solid transparent;box-shadow:none;font-size:14px;padding:6px 12px;color:#fff}
+.subtabs button.sel{background:var(--sun);color:var(--ink);border-color:var(--ink)}
+.subtabs button:active:not(:disabled){transform:none;box-shadow:none}
+.subtabs .n{display:inline-block;min-width:18px;padding:0 4px;margin-left:5px;background:var(--red);color:#fff;
+  border:2px solid var(--ink);border-radius:3px;font-size:11px;line-height:14px;vertical-align:1px}
+[hidden]{display:none!important}
+
+/* ---------- computador ---------- */
+.row{display:grid;gap:16px}
+.r2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.r3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.rh{grid-template-columns:minmax(260px,330px) minmax(0,1fr)}
+@media (max-width:960px){.r2,.r3,.rh{grid-template-columns:1fr}}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px}
+.stat{background:#fff;border:3px solid var(--ink);box-shadow:0 6px 0 var(--ink);border-radius:8px;padding:10px 12px}
+.stat .k{font-family:var(--head);font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.stat .v{font-family:var(--head);font-size:30px;line-height:1.1;margin:2px 0}
+.stat .s{font-size:12.5px;color:var(--muted);font-weight:500;min-height:17px}
+.meter{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:6px 0 4px}
+.meter i{height:12px;border:2px solid var(--ink);background:#e9eef5}
+.meter i.on{background:var(--c,var(--green))}
+.card h2{font-family:var(--head);margin:0 0 8px;font-size:19px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 small{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:600}
+.card h2 .sp{flex:1}
+.hint{font-size:13.5px;color:var(--muted);font-weight:500;line-height:1.45;margin:0 0 10px}
+.hint b{color:var(--ink)}
+.score{display:flex;gap:14px;align-items:center}
+.score .snum{font-family:var(--head);font-size:52px;line-height:1}
+.score .lbl{font-family:var(--head);font-size:17px}
+.find .act{margin-top:6px}
+.find .act button{font-size:12px;padding:4px 10px;box-shadow:0 4px 0 var(--blue2),0 4px 0 3px var(--ink)}
+svg.chart2{width:100%;height:110px;display:block;border:3px solid var(--ink);border-radius:4px;background:#f3f8ff}
+.tbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+input.in,select.in{font:inherit;font-weight:600;border:3px solid var(--ink);border-radius:6px;padding:7px 10px;
+  background:#fff;color:var(--ink);min-width:0}
+input.in:focus,select.in:focus{outline:4px solid var(--sun);outline-offset:1px}
+.list{display:flex;flex-direction:column}
+.it{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 2px;border-top:3px dashed #e3e7ee}
+.it:first-child{border-top:0}
+.it .ico{width:30px;height:30px;border:3px solid var(--ink);display:grid;place-items:center;font-family:var(--head);
+  color:#fff;font-size:13px;box-shadow:inset -4px -4px 0 rgba(0,0,0,.18),inset 3px 3px 0 rgba(255,255,255,.35)}
+.ico.app{background:var(--blue)} .ico.windows{background:var(--grey2)} .ico.protegido{background:#8b8fa8}
+.ico.alto{background:var(--red)} .ico.medio{background:var(--orange)} .ico.baixo{background:var(--sun)}
+.it .t{font-family:var(--head);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .d{font-size:12.5px;color:var(--muted);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.it .why{font-size:12.5px;color:var(--red2);font-weight:700;white-space:normal}
+.it .why.medio{color:var(--orange2)} .it .why.baixo{color:#8a6d00}
+.it .r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.it .r button{font-size:12.5px;padding:5px 10px}
+.mini{display:inline-flex;flex-direction:column;align-items:flex-end;min-width:64px;font-size:12px;color:var(--muted)}
+.mini b{font-family:var(--head);font-weight:400;font-size:15px;color:var(--ink)}
+.hb{width:64px;height:8px;border:2px solid var(--ink);background:#e9eef5;margin-top:2px}
+.hb>i{display:block;height:100%;background:var(--orange)}
+.tag{display:inline-block;font-size:11px;font-family:var(--head);padding:1px 6px;border:2px solid var(--ink);border-radius:3px;
+  margin-left:6px;vertical-align:2px;background:#fff;font-weight:400}
+.tag.alto{background:var(--red);color:#fff} .tag.medio{background:var(--orange);color:#fff} .tag.baixo{background:var(--sun)}
+.tag.ok{background:var(--green);color:#fff} .tag.g{background:var(--grey)} .tag.b{background:var(--blue);color:#fff}
+button.sm{font-size:12.5px;padding:5px 10px;box-shadow:0 4px 0 var(--blue2),0 4px 0 3px var(--ink)}
+button.sm.r{box-shadow:0 4px 0 var(--red2),0 4px 0 3px var(--ink)} button.sm.g{box-shadow:0 4px 0 var(--green2),0 4px 0 3px var(--ink)}
+button.sm.w{background:#fff;color:var(--ink);box-shadow:0 4px 0 var(--grey2),0 4px 0 3px var(--ink)}
+button.sm.y{box-shadow:0 4px 0 var(--sun2),0 4px 0 3px var(--ink)} button.sm.o{box-shadow:0 4px 0 var(--orange2),0 4px 0 3px var(--ink)}
+/* chave de blocos */
+.tog{position:relative;width:62px;height:32px;border:3px solid var(--ink);border-radius:5px;background:var(--grey);cursor:pointer;
+  flex:none;padding:0;box-shadow:0 4px 0 var(--ink)}
+.tog:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border:3px solid var(--ink);transition:left .12s}
+.tog.on{background:var(--green)} .tog.on:after{left:33px}
+.tog:disabled{opacity:.5;cursor:wait}
+.drv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center}
+.dbar{height:24px;border:3px solid var(--ink);border-radius:4px;background:#e9eef5;overflow:hidden;grid-column:1/-1}
+.dbar>i{display:block;height:100%}
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:8px;font-size:13px}
+.crumbs button{font-size:12px;padding:3px 8px;background:#fff;color:var(--ink);box-shadow:0 3px 0 var(--ink)}
+.fbar{height:10px;border:2px solid var(--ink);background:#e9eef5;margin-top:3px}
+.fbar>i{display:block;height:100%;background:var(--blue)}
+.it.folder{cursor:pointer} .it.folder:hover{background:#f3f8ff}
+.chk{width:20px;height:20px;accent-color:var(--green)}
+.grp{border:3px solid var(--ink);border-radius:6px;padding:6px 10px;margin:8px 0;background:#fbfcff}
+.grp .h{font-family:var(--head);font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.modal{position:fixed;inset:0;background:rgba(43,45,66,.55);z-index:40;display:grid;place-items:center;padding:16px}
+.modal .card{max-width:520px;width:100%;margin:0}
+.modal h3{font-family:var(--head);margin:0 0 8px;font-size:20px}
+.modal p{margin:0 0 12px;font-weight:500;line-height:1.45}
+pre.md{white-space:pre-wrap;word-break:break-word;background:#f3f8ff;border:3px solid var(--ink);border-radius:6px;padding:12px;
+  max-height:480px;overflow:auto;font-size:12.5px;font-family:Consolas,monospace;font-weight:500}
+.tips{margin:4px 0 0 18px;padding:0;font-size:14px;line-height:1.6;font-weight:500}
+.tips b{font-weight:800}
+.empty2{color:var(--muted);text-align:center;padding:18px 8px;font-weight:500}
+.spin{display:inline-block;width:14px;height:14px;border:3px solid var(--ink);border-right-color:transparent;animation:sp 1s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.adm{font-size:12px;padding:4px 10px}
 </style>
 </head>
 <body>
@@ -110,23 +208,45 @@ svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);bord
     <svg id="mascot" class="mascot" width="64" height="88" viewBox="0 0 16 22" aria-hidden="true"></svg>
     <div>
       <h1>CalorScan PC</h1>
-      <p class="sub">Descubra o que esquenta o celular e deixe ele mais fresco.</p>
+      <p class="sub" id="sub">Descubra o que esquenta o computador e o celular, e deixe tudo mais fresco.</p>
     </div>
-    <div class="chip" id="chip"><span class="dot" id="dot"></span><span id="chipText">Procurando celular…</span></div>
+    <div class="chip" id="chip"><span class="dot" id="dot"></span><span id="chipText">Carregando…</span></div>
   </header>
 
-  <div class="grid">
-    <section id="steps"></section>
-    <section>
-      <div class="card result" id="result"></div>
-    </section>
+  <nav class="tabs" id="mainTabs">
+    <button data-t="pc" class="sel" onclick="mainTab('pc')">💻 Computador</button>
+    <button data-t="phone" onclick="mainTab('phone')">📱 Celular</button>
+  </nav>
+
+  <div id="pcView">
+    <nav class="subtabs" id="pcTabs"></nav>
+    <div id="pcBody"></div>
+  </div>
+
+  <div id="phoneView" hidden>
+    <div class="grid">
+      <section id="steps"></section>
+      <section>
+        <div id="phoneLive"></div>
+        <div class="card result" id="result"></div>
+      </section>
+    </div>
   </div>
 </div>
 <div class="log" id="log"></div>
 
 <script>
 const $ = s => document.querySelector(s);
-let st = null, minutes = 10;
+const TOKEN = "%%TOKEN%%", HAS_PC = "%%PC%%" === "1";
+let st = null, minutes = 10, view = HAS_PC ? "pc" : "phone";
+function mainTab(t){
+  view = t;
+  document.querySelectorAll("#mainTabs button").forEach(b=>b.classList.toggle("sel", b.dataset.t===t));
+  $("#pcView").hidden = t!=="pc"; $("#phoneView").hidden = t!=="phone";
+  $("#sub").textContent = t==="pc" ? "Veja o que esquenta e pesa no computador, e resolva com um clique."
+                                   : "Descubra o que esquenta o celular e deixe ele mais fresco.";
+  if(t==="phone") poll(); else if(window.pcEnter) pcEnter();
+}
 
 /* ---------- mascote de blocos (termometro) ---------- */
 function mascot(temp){
@@ -151,9 +271,13 @@ function mascot(temp){
 
 /* ---------- acoes ---------- */
 async function act(name, arg){
-  const r = await fetch(`/api/action/${name}${arg?"/"+arg:""}`, {method:"POST"});
+  const r = await fetch(`/api/action/${name}${arg?"/"+arg:""}`, {method:"POST", headers:{"X-Token":TOKEN}});
   if(r.status===409) toast("Espere terminar o que está em andamento");
   poll();
+}
+function reinstall(){
+  if(confirm("Remover a versão antiga do CalorScan do celular e instalar a nova?\n\nO histórico de temperatura do app no celular começa do zero e você precisa fazer o passo 3 (Liberar) de novo."))
+    act('reinstall');
 }
 function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",2600)}
 async function copyMd(){
@@ -178,13 +302,17 @@ const B=(label,cls,on,dis)=>`<button class="${cls||""}" onclick="${on}" ${dis?"d
 function render(){
   const ph=st.phone||{}, app=st.app||{}, busy=!!st.busy, sc=st.scan||{phase:"idle"};
   const con = ph.device==="device";
+  if(view!=="phone"){ renderPhoneBody(ph, app, busy, sc, con); return; }
   mascot(con?ph.temp:null);
   // chip
   const dot=$("#dot");
   dot.className="dot "+(con?(ph.temp>=43?"bad":ph.temp>=40?"warn":"on"):ph.device==="unauthorized"?"warn":"");
   $("#chipText").textContent = !ph.adb ? "ADB não encontrado" : con ? `${ph.model_full||ph.model} · ${ph.temp?.toFixed(1)} °C${ph.charging?" · carregando":""}`
     : ph.device==="unauthorized" ? "Aceite no celular" : ph.device==="rebooting" ? "Celular reiniciando…" : "Nenhum celular conectado";
+  renderPhoneBody(ph, app, busy, sc, con);
+}
 
+function renderPhoneBody(ph, app, busy, sc, con){
   let h="";
   // 1 conectar
   let s1, b1="", body1;
@@ -192,7 +320,9 @@ function render(){
   else if(con){ s1="done"; body1=`<p>${ph.model_full||ph.model} · Android ${ph.android||"?"} · bateria ${ph.temp?.toFixed(1)} °C</p>`; }
   else if(ph.device==="unauthorized"){ s1="now"; body1=`<p><b>Olhe o celular:</b> apareceu "Permitir depuração USB?". Marque <b>Sempre permitir neste computador</b> e toque em <b>Permitir</b>.</p>`; }
   else if(ph.device==="rebooting"){ s1="now"; body1=`<p>O celular está reiniciando. Quando ligar, desbloqueie com o PIN.</p>`; }
-  else { s1="now"; body1=`<p>Ligue o cabo USB no celular e no notebook.</p>
+  else { s1="now"; b1=B("Reconectar","y","act('reconnect')",busy);
+    body1=`<p>Ligue o cabo USB no celular e no notebook. <b>O celular já está no cabo e não aparece?</b> Desbloqueie e
+      clique em <b>Reconectar</b> (isso destrava a conexão, comum depois que o celular reinicia).</p>
     <details ${ph.device==="none"?"open":""}><summary>Primeira vez? Prepare o celular (1 vez só)</summary><ol class="help">
     <li><b>Configurações → Sobre o telefone → Informações do software</b> → toque <b>7 vezes</b> em <b>Número de compilação</b> e digite o PIN.</li>
     <li>Volte para <b>Configurações</b>: no fim da lista apareceu <b>Opções do desenvolvedor</b>. Entre e ligue <b>Depuração USB</b>.</li>
@@ -201,12 +331,27 @@ function render(){
     <li>Use um cabo que transmite dados (o da caixa serve). Deixe o celular <b>desbloqueado</b>.</li></ol></details>`; }
   h+=stepHTML(1,"Conectar o celular", s1==="done"?"Conectado":"Agora", body1, b1, s1);
 
-  // 2 instalar
+  // 2 instalar / atualizar
   const s2 = !con ? "locked" : app.installed && !app.update ? "done" : "now";
-  h+=stepHTML(2,"Instalar o app CalorScan no celular",
-    s2==="locked"?"Faça o passo 1":s2==="done"?`Versão ${app.version}`:app.installed?"Atualização":"Agora",
-    `<p>O app fica no celular medindo a temperatura sozinho, mesmo sem o notebook.</p>`,
-    s2==="done"?"":B(app.installed?"Atualizar app":"Instalar app","g","act('install')",!con||busy), s2);
+  const verTxt = !con ? "" : `<p>No celular: <b>${app.installed?`versão ${app.version}`:"não instalado"}</b>
+     · neste PC: <b>${app.available?`versão ${app.available}`:"baixa do GitHub"}</b></p>`;
+  let b2 = "";
+  if(app.need_reinstall){
+    b2 = B("Reinstalar (remove a versão antiga)","r","reinstall()",!con||busy);
+  } else if(!app.installed){
+    b2 = B("Instalar app","g","act('install')",!con||busy);
+  } else if(app.update){
+    b2 = B("Atualizar app","g","act('install')",!con||busy);
+  } else {
+    b2 = B("Instalar de novo","","act('install')",!con||busy);
+  }
+  h+=stepHTML(2,"Instalar ou atualizar o app no celular",
+    s2==="locked"?"Faça o passo 1":s2==="done"?`Versão ${app.version} ✓`:app.need_reinstall?"Reinstalar":app.installed?"Atualização":"Agora",
+    `<p>O app fica no celular medindo a temperatura sozinho, mesmo sem o notebook. O botão sempre instala a
+      versão mais nova (procura no GitHub antes) e <b>mantém as suas escolhas</b>.</p>${verTxt}
+     ${app.need_reinstall?`<p><b>A versão do celular é antiga e não aceita atualização por cima</b> (foi feita com outra assinatura).
+       Reinstalar remove a antiga e instala a nova; o histórico de temperatura do app começa do zero.</p>`:""}`,
+    b2, s2);
 
   // 3 liberar
   const s3 = !con||!app.installed ? "locked" : app.granted ? "done" : "now";
@@ -256,9 +401,11 @@ function render(){
   $("#steps").innerHTML=h;
 
   // log
-  const lg=$("#log");
-  lg.innerHTML = (st.busy?`⏳ ${st.busy}…<br>`:"") + (st.log||[]).slice(-3).join("<br>");
-  lg.classList.toggle("show", !!(st.busy || (st.log||[]).length));
+  if(view==="phone"){
+    const lg=$("#log");
+    lg.innerHTML = (st.busy?`⏳ ${st.busy}…<br>`:"") + (st.log||[]).slice(-3).join("<br>");
+    lg.classList.toggle("show", !!(st.busy || (st.log||[]).length));
+  }
 
   renderResult(st.result);
 }
@@ -292,15 +439,62 @@ function renderResult(r){
     ${r.top.map(t=>`<div class="proc"><span class="n" title="${t.name}">${t.name}${t.profiles>1?` ×${t.profiles}`:""}</span>
       <div class="b ${t.kind}" style="width:${Math.max(3,t.secs/maxS*100)}%"></div><span>${t.secs}s</span></div>`).join("")}
     <div class="btns" style="margin-top:14px">${B("Copiar resumo para IA","y","copyMd()")}${B("Salvar .md","","saveMd()")}
-      ${B("Abrir pasta","","fetch('/api/open-reports',{method:'POST'})")}</div>
+      ${B("Abrir pasta","","fetch('/api/open-reports',{method:'POST',headers:{'X-Token':TOKEN}})")}</div>
     <p style="font-size:13px;color:var(--muted);margin:10px 0 0">O resumo já vem com as instruções para a IA: é só colar no ChatGPT, Claude, Gemini…</p>`;
 }
 
 async function poll(){
+  if(view!=="phone" && st) return;   // na parte Computador o celular nao e consultado (economiza o ADB)
+  if(document.hidden && st && Date.now() - (window._hp||0) < 20000) return;  // minimizado: bem devagar
+  window._hp = Date.now();
   try{ st = await (await fetch("/api/status")).json(); render(); }
   catch{ $("#chipText").textContent="Programa fechado. Abra de novo."; }
 }
+/* ---------- celular ao vivo (pelo cabo) ---------- */
+const THN = ["normal","leve","moderado","severo","crítico","emergência","desligando"];
+async function livePhone(){
+  const el = $("#phoneLive");
+  if(view!=="phone" || !el || document.hidden) return;  // minimizado: nao le o celular
+  const con = st && st.phone && st.phone.device==="device";
+  if(!con){ el.innerHTML = ""; return; }
+  let j; try{ j = await (await fetch("/api/phone/live")).json(); }catch{ return; }
+  const n = j.now;
+  if(!n){ el.innerHTML = j.off ? "" : `<div class="card"><h2>Celular ao vivo</h2><div class="empty2"><span class="spin"></span> Lendo o celular…</div></div>`; return; }
+  const tc = v => v==null?"var(--muted)":v>=43?"var(--red)":v>=40?"var(--orange2)":v>=35?"var(--sun2)":"var(--green2)";
+  const tm = v => v==null?0:Math.min(100,Math.max(0,(v-25)/22*100));
+  const maxc = Math.max(5, ...n.procs.map(p=>p.cpu));
+  const H = j.hist||[];
+  const fmtB2 = b => b==null?"—":b>=1<<30?(b/(1<<30)).toFixed(1)+" GB":Math.round(b/(1<<20))+" MB";
+  el.innerHTML = `<div class="card"><h2>Celular ao vivo <small>atualiza a cada 3 s pelo cabo</small></h2>
+    <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+      <div class="stat"><div class="k">Bateria</div><div class="v" style="color:${tc(n.bat_temp)}">${n.bat_temp?.toFixed(1)??"—"} °C</div>
+        ${meter(tm(n.bat_temp), tc(n.bat_temp))}<div class="s">${n.level??"?"}%${n.charging?" · carregando":""} · sistema ${THN[n.thermal]??"?"}</div></div>
+      <div class="stat"><div class="k">Processador</div><div class="v">${n.cpu??"—"}%</div>${meter(n.cpu||0)}
+        <div class="s">${n.ncpu} núcleos${n.freq_ghz?` · até ${n.freq_ghz} GHz`:""}${n.cpu_temp?` · ${n.cpu_temp} °C`:""}</div></div>
+      <div class="stat"><div class="k">Memória</div><div class="v">${n.mem_pct??"—"}%</div>${meter(n.mem_pct||0)}
+        <div class="s">${fmtB2(n.mem_used)} de ${fmtB2(n.mem_total)}${n.swap_used?` · ${fmtB2(n.swap_used)} no disco`:""}</div></div>
+      <div class="stat"><div class="k">${n.charging?"Carga entrando":"Consumo da bateria"}</div><div class="v">${n.watts!=null?n.watts+" W":"—"}</div>${meter(n.watts!=null?Math.min(100,n.watts/8*100):0, n.watts>=5?"var(--red)":n.watts>=3?"var(--orange)":"var(--green)")}
+        <div class="s">${n.current_ma!=null?Math.abs(n.current_ma)+" mA"+(n.current_ma>0&&n.charging?" entrando":" saindo"):""}${n.skin_temp?` · carcaça ${n.skin_temp} °C`:""}${n.gpu!=null?` · vídeo ${n.gpu}%`:""}</div></div>
+    </div>
+    <p class="hint" style="margin:12px 0 6px">Na tela agora: <b>${n.screen?(n.fg_name||"—"):"tela desligada"}</b></p>
+    ${H.length>2?`<h2 style="font-size:15px;margin:8px 0 4px">Temperatura da bateria <small>últimos ${Math.max(1,Math.round((H[H.length-1].t-H[0].t)/60))} min</small></h2>
+      ${chartBars(H.map(p=>({...p, bt:p.bat_temp})),"bt",50,v=>v>=43?"var(--red)":v>=40?"var(--orange)":v>=35?"var(--sun)":"var(--green)","A temperatura"," °C")}
+      <h2 style="font-size:15px;margin:8px 0 4px">Processador</h2>${chartBars(H,"cpu",100,lvlCol,"O processador")}`:""}
+    <h2 style="font-size:15px;margin:12px 0 4px">Quem está usando o processador agora</h2>
+    <div class="legend"><span><i style="background:var(--grey2)"></i>sistema</span><span><i style="background:var(--blue)"></i>Google</span>
+      <span><i style="background:var(--sun)"></i>Samsung</span><span><i style="background:var(--orange)"></i>apps</span></div>
+    ${n.procs.slice(0,10).map(p=>`<div class="proc" style="grid-template-columns:170px 1fr 92px"><span class="n" title="${p.pkg}">${p.name}${p.profile!=="0"?` <span class="tag g">${p.profile_name}</span>`:""}${p.n>1?` ×${p.n}`:""}</span>
+      <div class="b ${p.kind}" style="width:${Math.max(2,p.cpu/maxc*100)}%"></div><span>${p.cpu}% · ${fmtB2(p.mem)}</span></div>`).join("") || `<div class="empty2">Nada pesando agora.</div>`}
+    ${(j.session||[]).length?`<p class="hint" style="margin-top:10px">Desde que você abriu este painel, quem mais gastou:
+      <b>${j.session.slice(0,5).map(s=>`${s.name} (${Math.round(s.secs)} s)`).join(", ")}</b>.</p>`:""}
+    ${j.error?`<p class="hint" style="color:var(--red2)">Última leitura falhou: ${j.error}</p>`:""}
+  </div>`;
+}
+setInterval(livePhone, 3000);
+
 mascot(null); poll(); setInterval(poll, 2500);
 </script>
+<script src="/ui_pc.js"></script>
+<script>if(HAS_PC) mainTab("pc"); else { $("#mainTabs").hidden=true; mainTab("phone"); }</script>
 </body>
 </html>

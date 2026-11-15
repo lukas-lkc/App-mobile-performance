@@ -4,19 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CalorScan PC</title>
+<script>/* tema guardado: aplica antes de desenhar (sem piscar) */
+document.documentElement.className = "%%THEME%%" === "dark" ? "dark" : "%%THEME%%" === "live" ? "live" : "";</script>
 <style>
 :root{
   --ink:#2b2d42; --sky1:#7fd3ff; --sky2:#c6efff; --grass:#62d26f; --grass2:#3fa452; --dirt:#b7794a;
   --sun:#ffd23f; --sun2:#e0a800; --blue:#3fa9f5; --blue2:#1f7cc2; --green:#45c463; --green2:#2b8f44;
   --orange:#ff9a3c; --orange2:#d26b12; --red:#ff5a4e; --red2:#c2342a; --grey:#cfd5dd; --grey2:#9aa3ad;
-  --card:#ffffff; --muted:#5d6177;
+  --card:#ffffff; --muted:#5d6177; --text:#2b2d42; --onlight:#2b2d42; --link:#1f7cc2;
+  --empty:#e9eef5; --chart:#f3f8ff; --dash:#e3e7ee; --soft:#fbfcff; --why:#c2342a; --okt:#2b8f44; --whyo:#d26b12; --whyy:#8a6d00;
   --head:"Segoe UI Black","Arial Black","Segoe UI",system-ui,sans-serif;
   --body:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
 }
+/* tema escuro: mesmas cores do app do celular */
+html.dark{
+  --ink:#0c0e1c; --text:#eef0fa; --muted:#a9afcb; --card:#262b48; --sky1:#0f1530; --sky2:#27305a;
+  --grass:#2f7d46; --grass2:#1e5a31; --grey:#454b6e; --grey2:#6a7096; --empty:#353a5c; --chart:#1c2140;
+  --dash:#353a5c; --soft:#2a3052; --link:#7cc4ff; --why:#ff8a80; --okt:#5fd47a; --whyo:#ffb066; --whyy:#f0c93a;
+}
+html.dark .cloud{display:none}
+html.live .cloud{display:none}
+/* troca de tema: as cores escorregam (so durante a troca, para nao pesar no resto do tempo) */
+/* a letra vira de uma vez no meio (se escorregasse junto com o fundo, ficaria da mesma cor dele por um instante) */
+html.swap *, html.swap *:before, html.swap *:after{transition:background-color .7s,color 0s .35s,border-color .7s,box-shadow .7s!important}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{font-family:var(--body);font-weight:600;color:var(--ink);
-  background:linear-gradient(var(--sky1),var(--sky2) 70%);overflow-x:hidden}
+body{font-family:var(--body);font-weight:600;color:var(--text);
+  background:linear-gradient(var(--skyA,var(--sky1)),var(--skyB,var(--sky1)) 35%,var(--skyC,var(--sky2))) fixed;overflow-x:hidden}
+/* ceu de blocos (sol, lua, estrelas, nuvens, chuva) atras do topo */
+#sky{position:fixed;left:0;top:0;width:100%;height:230px;z-index:0;pointer-events:none;image-rendering:pixelated}
+.themebtn{flex:none;width:52px;height:52px;padding:0;display:grid;place-items:center;background:var(--card);
+  box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink)}
+.themebtn svg{width:34px;height:34px;image-rendering:pixelated}
+.tchoice{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0 12px}
+.tchoice button{background:var(--card);color:var(--text);box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink);
+  display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;font-size:14px}
+.tchoice button.sel{background:#9ed8fb;color:var(--onlight);box-shadow:0 6px 0 #4fb3f4,0 6px 0 3px var(--ink)}
+html.dark .tchoice button.sel{background:#2c4f86;color:#fff;box-shadow:0 6px 0 #1f6fb2,0 6px 0 3px var(--ink)}
+.tchoice svg{width:40px;height:40px;image-rendering:pixelated}
 /* nuvens de blocos */
 .cloud{position:fixed;background:#fff;height:22px;box-shadow:22px -22px 0 #fff,44px 0 0 #fff,66px -22px 0 #fff,88px 0 0 #fff;
   width:22px;opacity:.85;z-index:0}
@@ -28,7 +53,7 @@ body{font-family:var(--body);font-weight:600;color:var(--ink);
 header{display:flex;align-items:center;gap:16px;margin-bottom:14px}
 h1{font-family:var(--head);font-size:34px;margin:0;letter-spacing:.5px;color:#fff;
   text-shadow:3px 3px 0 var(--ink),-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink)}
-.sub{margin:2px 0 0;color:var(--ink);opacity:.8}
+.sub{margin:2px 0 0;color:var(--text);opacity:.8}
 .chip{margin-left:auto;background:var(--card);border:3px solid var(--ink);box-shadow:0 5px 0 var(--ink);
   border-radius:8px;padding:8px 14px;font-family:var(--head);font-size:15px;display:flex;gap:10px;align-items:center}
 .dot{width:12px;height:12px;border:2px solid var(--ink);background:var(--grey)}
@@ -43,10 +68,10 @@ h1{font-family:var(--head);font-size:34px;margin:0;letter-spacing:.5px;color:#ff
 .step.done .num{background:var(--green)} .step.locked .num{background:var(--grey)}
 .step h3{font-family:var(--head);margin:0 0 4px;font-size:17px}
 .step p{margin:0 0 8px;color:var(--muted);font-size:14px;line-height:1.4;font-weight:500}
-.step p b{color:var(--ink);font-weight:800}
+.step p b{color:var(--text);font-weight:800}
 .step.locked h3,.step.locked p{opacity:.55}
 .pill{display:inline-block;font-size:12px;font-family:var(--head);padding:2px 8px;border:2px solid var(--ink);
-  border-radius:4px;margin-left:6px;vertical-align:2px;background:var(--sun)}
+  border-radius:4px;margin-left:6px;vertical-align:2px;background:var(--sun);color:var(--onlight)}
 .pill.ok{background:var(--green);color:#fff} .pill.lock{background:var(--grey)}
 .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 button,.btn{font-family:var(--head);font-size:15px;color:#fff;border:3px solid var(--ink);border-radius:6px;
@@ -56,24 +81,24 @@ button:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 var(--
 button.g{background:var(--green);box-shadow:0 6px 0 var(--green2),0 6px 0 3px var(--ink)}
 button.o{background:var(--orange);box-shadow:0 6px 0 var(--orange2),0 6px 0 3px var(--ink)}
 button.r{background:var(--red);box-shadow:0 6px 0 var(--red2),0 6px 0 3px var(--ink)}
-button.y{background:var(--sun);color:var(--ink);box-shadow:0 6px 0 var(--sun2),0 6px 0 3px var(--ink)}
+button.y{background:var(--sun);color:var(--onlight);box-shadow:0 6px 0 var(--sun2),0 6px 0 3px var(--ink)}
 button:disabled{background:var(--grey);color:#8a919c;box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink);cursor:not-allowed}
 button:focus-visible{outline:4px solid var(--sun);outline-offset:3px}
 .seg{display:inline-flex;border:3px solid var(--ink);border-radius:6px;overflow:hidden;margin-right:6px;vertical-align:middle}
-.seg button{border:0;border-radius:0;box-shadow:none;padding:7px 11px;background:#fff;color:var(--ink);font-size:13px}
-.seg button.sel{background:var(--sun)}
+.seg button{border:0;border-radius:0;box-shadow:none;padding:7px 11px;background:var(--card);color:var(--text);font-size:13px}
+.seg button.sel{background:var(--sun);color:var(--onlight)}
 .seg button+button{border-left:3px solid var(--ink)}
-ol.help{margin:6px 0 4px 18px;padding:0;font-size:14px;line-height:1.55;color:var(--ink);font-weight:500}
+ol.help{margin:6px 0 4px 18px;padding:0;font-size:14px;line-height:1.55;color:var(--text);font-weight:500}
 ol.help b{font-weight:800}
-details summary{cursor:pointer;font-family:var(--head);font-size:14px;color:var(--blue2)}
-a{color:var(--blue2)}
-.bar{height:22px;border:3px solid var(--ink);border-radius:4px;background:#e9eef5;overflow:hidden;margin:8px 0}
+details summary{cursor:pointer;font-family:var(--head);font-size:14px;color:var(--link)}
+a{color:var(--link)}
+.bar{height:22px;border:3px solid var(--ink);border-radius:4px;background:var(--empty);overflow:hidden;margin:8px 0}
 .bar>i{display:block;height:100%;background:repeating-linear-gradient(45deg,var(--green) 0 14px,var(--grass2) 14px 28px);
   transition:width .5s}
 .result h2{font-family:var(--head);margin:0 0 8px;font-size:20px}
 .big{display:flex;align-items:center;gap:14px;margin:4px 0 10px}
 .big .t{font-family:var(--head);font-size:44px;line-height:1}
-.find{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:9px 0;border-top:3px dashed #e3e7ee}
+.find{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:9px 0;border-top:3px dashed var(--dash)}
 .find .ic{width:22px;height:22px;border:3px solid var(--ink);margin-top:2px}
 .find.danger .ic{background:var(--red)} .find.warn .ic{background:var(--orange)} .find.info .ic{background:var(--blue)}
 .find.ok .ic{background:var(--green)}
@@ -85,7 +110,7 @@ a{color:var(--blue2)}
 .proc .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:2px 0 8px}
 .legend i{display:inline-block;width:11px;height:11px;border:2px solid var(--ink);vertical-align:-1px;margin-right:4px}
-svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);border-radius:4px;background:#f3f8ff}
+svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);border-radius:4px;background:var(--chart)}
 .log{position:fixed;left:16px;right:16px;bottom:44px;z-index:2;max-width:1148px;margin:0 auto;
   background:var(--ink);color:#fff;border-radius:6px;padding:8px 12px;font-size:13px;font-family:Consolas,monospace;
   display:none;box-shadow:0 5px 0 rgba(0,0,0,.25)}
@@ -98,16 +123,16 @@ svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);bord
 @keyframes shake{25%{transform:translate(-2px,0)}75%{transform:translate(2px,0)}}
 @media (prefers-reduced-motion:reduce){.mascot,.mascot.hot{animation:none}}
 .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--sun);border:3px solid var(--ink);
-  box-shadow:0 5px 0 var(--ink);padding:8px 16px;font-family:var(--head);border-radius:6px;z-index:50;display:none;max-width:90vw}
+  box-shadow:0 5px 0 var(--ink);padding:8px 16px;font-family:var(--head);border-radius:6px;z-index:50;color:var(--onlight);display:none;max-width:90vw}
 
 /* ---------- abas ---------- */
 .tabs{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
-.tabs>button{background:#fff;color:var(--ink);box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink);font-size:17px;padding:9px 18px}
-.tabs>button.sel{background:var(--sun);box-shadow:0 6px 0 var(--sun2),0 6px 0 3px var(--ink)}
+.tabs>button{background:var(--card);color:var(--text);box-shadow:0 6px 0 var(--grey2),0 6px 0 3px var(--ink);font-size:17px;padding:9px 18px}
+.tabs>button.sel{background:var(--sun);color:var(--onlight);box-shadow:0 6px 0 var(--sun2),0 6px 0 3px var(--ink)}
 .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;background:var(--ink);padding:6px;border-radius:8px;
   box-shadow:0 5px 0 rgba(0,0,0,.25)}
 .subtabs button{background:transparent;border:3px solid transparent;box-shadow:none;font-size:14px;padding:6px 12px;color:#fff}
-.subtabs button.sel{background:var(--sun);color:var(--ink);border-color:var(--ink)}
+.subtabs button.sel{background:var(--sun);color:var(--onlight);border-color:var(--ink)}
 .subtabs button:active:not(:disabled){transform:none;box-shadow:none}
 .subtabs .n{display:inline-block;min-width:18px;padding:0 4px;margin-left:5px;background:var(--red);color:#fff;
   border:2px solid var(--ink);border-radius:3px;font-size:11px;line-height:14px;vertical-align:1px}
@@ -120,30 +145,30 @@ svg.chart{width:100%;height:120px;display:block;border:3px solid var(--ink);bord
 .rh{grid-template-columns:minmax(260px,330px) minmax(0,1fr)}
 @media (max-width:960px){.r2,.r3,.rh{grid-template-columns:1fr}}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:14px}
-.stat{background:#fff;border:3px solid var(--ink);box-shadow:0 6px 0 var(--ink);border-radius:8px;padding:10px 12px}
+.stat{background:var(--card);border:3px solid var(--ink);box-shadow:0 6px 0 var(--ink);border-radius:8px;padding:10px 12px}
 .stat .k{font-family:var(--head);font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
 .stat .v{font-family:var(--head);font-size:30px;line-height:1.1;margin:2px 0}
 .stat .s{font-size:12.5px;color:var(--muted);font-weight:500;min-height:17px}
 .meter{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:6px 0 4px}
-.meter i{height:12px;border:2px solid var(--ink);background:#e9eef5}
+.meter i{height:12px;border:2px solid var(--ink);background:var(--empty)}
 .meter i.on{background:var(--c,var(--green))}
 .card h2{font-family:var(--head);margin:0 0 8px;font-size:19px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .card h2 small{font-family:var(--body);font-size:13px;color:var(--muted);font-weight:600}
 .card h2 .sp{flex:1}
 .hint{font-size:13.5px;color:var(--muted);font-weight:500;line-height:1.45;margin:0 0 10px}
-.hint b{color:var(--ink)}
+.hint b{color:var(--text)}
 .score{display:flex;gap:14px;align-items:center}
 .score .snum{font-family:var(--head);font-size:52px;line-height:1}
 .score .lbl{font-family:var(--head);font-size:17px}
 .find .act{margin-top:6px}
 .find .act button{font-size:12px;padding:4px 10px;box-shadow:0 4px 0 var(--blue2),0 4px 0 3px var(--ink)}
-svg.chart2{width:100%;height:110px;display:block;border:3px solid var(--ink);border-radius:4px;background:#f3f8ff}
+svg.chart2{width:100%;height:110px;display:block;border:3px solid var(--ink);border-radius:4px;background:var(--chart)}
 .tbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
 input.in,select.in{font:inherit;font-weight:600;border:3px solid var(--ink);border-radius:6px;padding:7px 10px;
-  background:#fff;color:var(--ink);min-width:0}
+  background:var(--card);color:var(--text);min-width:0}
 input.in:focus,select.in:focus{outline:4px solid var(--sun);outline-offset:1px}
 .list{display:flex;flex-direction:column}
-.it{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 2px;border-top:3px dashed #e3e7ee}
+.it{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 2px;border-top:3px dashed var(--dash)}
 .it:first-child{border-top:0}
 .it .ico{width:30px;height:30px;border:3px solid var(--ink);display:grid;place-items:center;font-family:var(--head);
   color:#fff;font-size:13px;box-shadow:inset -4px -4px 0 rgba(0,0,0,.18),inset 3px 3px 0 rgba(255,255,255,.35)}
@@ -151,44 +176,44 @@ input.in:focus,select.in:focus{outline:4px solid var(--sun);outline-offset:1px}
 .ico.alto{background:var(--red)} .ico.medio{background:var(--orange)} .ico.baixo{background:var(--sun)}
 .it .t{font-family:var(--head);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .it .d{font-size:12.5px;color:var(--muted);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.it .why{font-size:12.5px;color:var(--red2);font-weight:700;white-space:normal}
-.it .why.medio{color:var(--orange2)} .it .why.baixo{color:#8a6d00}
+.it .why{font-size:12.5px;color:var(--why);font-weight:700;white-space:normal}
+.it .why.medio{color:var(--whyo)} .it .why.baixo{color:var(--whyy)}
 .it .r{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .it .r button{font-size:12.5px;padding:5px 10px}
 .mini{display:inline-flex;flex-direction:column;align-items:flex-end;min-width:64px;font-size:12px;color:var(--muted)}
-.mini b{font-family:var(--head);font-weight:400;font-size:15px;color:var(--ink)}
-.hb{width:64px;height:8px;border:2px solid var(--ink);background:#e9eef5;margin-top:2px}
+.mini b{font-family:var(--head);font-weight:400;font-size:15px;color:var(--text)}
+.hb{width:64px;height:8px;border:2px solid var(--ink);background:var(--empty);margin-top:2px}
 .hb>i{display:block;height:100%;background:var(--orange)}
 .tag{display:inline-block;font-size:11px;font-family:var(--head);padding:1px 6px;border:2px solid var(--ink);border-radius:3px;
-  margin-left:6px;vertical-align:2px;background:#fff;font-weight:400}
-.tag.alto{background:var(--red);color:#fff} .tag.medio{background:var(--orange);color:#fff} .tag.baixo{background:var(--sun)}
+  margin-left:6px;vertical-align:2px;background:var(--card);font-weight:400}
+.tag.alto{background:var(--red);color:#fff} .tag.medio{background:var(--orange);color:#fff} .tag.baixo{background:var(--sun);color:var(--onlight)}
 .tag.ok{background:var(--green);color:#fff} .tag.g{background:var(--grey)} .tag.b{background:var(--blue);color:#fff}
 button.sm{font-size:12.5px;padding:5px 10px;box-shadow:0 4px 0 var(--blue2),0 4px 0 3px var(--ink)}
 button.sm.r{box-shadow:0 4px 0 var(--red2),0 4px 0 3px var(--ink)} button.sm.g{box-shadow:0 4px 0 var(--green2),0 4px 0 3px var(--ink)}
-button.sm.w{background:#fff;color:var(--ink);box-shadow:0 4px 0 var(--grey2),0 4px 0 3px var(--ink)}
+button.sm.w{background:var(--card);color:var(--text);box-shadow:0 4px 0 var(--grey2),0 4px 0 3px var(--ink)}
 button.sm.y{box-shadow:0 4px 0 var(--sun2),0 4px 0 3px var(--ink)} button.sm.o{box-shadow:0 4px 0 var(--orange2),0 4px 0 3px var(--ink)}
 /* chave de blocos */
 .tog{position:relative;width:62px;height:32px;border:3px solid var(--ink);border-radius:5px;background:var(--grey);cursor:pointer;
   flex:none;padding:0;box-shadow:0 4px 0 var(--ink)}
-.tog:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border:3px solid var(--ink);transition:left .12s}
+.tog:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:var(--card);border:3px solid var(--ink);transition:left .12s}
 .tog.on{background:var(--green)} .tog.on:after{left:33px}
 .tog:disabled{opacity:.5;cursor:wait}
 .drv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center}
-.dbar{height:24px;border:3px solid var(--ink);border-radius:4px;background:#e9eef5;overflow:hidden;grid-column:1/-1}
+.dbar{height:24px;border:3px solid var(--ink);border-radius:4px;background:var(--empty);overflow:hidden;grid-column:1/-1}
 .dbar>i{display:block;height:100%}
 .crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:8px;font-size:13px}
-.crumbs button{font-size:12px;padding:3px 8px;background:#fff;color:var(--ink);box-shadow:0 3px 0 var(--ink)}
-.fbar{height:10px;border:2px solid var(--ink);background:#e9eef5;margin-top:3px}
+.crumbs button{font-size:12px;padding:3px 8px;background:var(--card);color:var(--text);box-shadow:0 3px 0 var(--ink)}
+.fbar{height:10px;border:2px solid var(--ink);background:var(--empty);margin-top:3px}
 .fbar>i{display:block;height:100%;background:var(--blue)}
-.it.folder{cursor:pointer} .it.folder:hover{background:#f3f8ff}
+.it.folder{cursor:pointer} .it.folder:hover{background:var(--chart)}
 .chk{width:20px;height:20px;accent-color:var(--green)}
-.grp{border:3px solid var(--ink);border-radius:6px;padding:6px 10px;margin:8px 0;background:#fbfcff}
+.grp{border:3px solid var(--ink);border-radius:6px;padding:6px 10px;margin:8px 0;background:var(--soft)}
 .grp .h{font-family:var(--head);font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .modal{position:fixed;inset:0;background:rgba(43,45,66,.55);z-index:40;display:grid;place-items:center;padding:16px}
 .modal .card{max-width:520px;width:100%;margin:0}
 .modal h3{font-family:var(--head);margin:0 0 8px;font-size:20px}
 .modal p{margin:0 0 12px;font-weight:500;line-height:1.45}
-pre.md{white-space:pre-wrap;word-break:break-word;background:#f3f8ff;border:3px solid var(--ink);border-radius:6px;padding:12px;
+pre.md{white-space:pre-wrap;word-break:break-word;background:var(--chart);border:3px solid var(--ink);border-radius:6px;padding:12px;
   max-height:480px;overflow:auto;font-size:12.5px;font-family:Consolas,monospace;font-weight:500}
 .tips{margin:4px 0 0 18px;padding:0;font-size:14px;line-height:1.6;font-weight:500}
 .tips b{font-weight:800}
@@ -199,6 +224,7 @@ pre.md{white-space:pre-wrap;word-break:break-word;background:#f3f8ff;border:3px 
 </style>
 </head>
 <body>
+<canvas id="sky" aria-hidden="true"></canvas>
 <div class="cloud c2"></div><div class="cloud c3"></div>
 <div class="ground"></div>
 <div class="toast" id="toast"></div>
@@ -211,6 +237,7 @@ pre.md{white-space:pre-wrap;word-break:break-word;background:#f3f8ff;border:3px 
       <p class="sub" id="sub">Descubra o que esquenta o computador e o celular, e deixe tudo mais fresco.</p>
     </div>
     <div class="chip" id="chip"><span class="dot" id="dot"></span><span id="chipText">Carregando…</span></div>
+    <button class="themebtn" id="themeBtn" onclick="chooseTheme()" title="Tema" aria-label="Escolher tema"></button>
   </header>
 
   <nav class="tabs" id="mainTabs">
@@ -237,7 +264,7 @@ pre.md{white-space:pre-wrap;word-break:break-word;background:#f3f8ff;border:3px 
 
 <script>
 const $ = s => document.querySelector(s);
-const TOKEN = "%%TOKEN%%", HAS_PC = "%%PC%%" === "1";
+const TOKEN = "%%TOKEN%%", HAS_PC = "%%PC%%" === "1", THEME = "%%THEME%%";
 let st = null, minutes = 10, view = HAS_PC ? "pc" : "phone";
 function mainTab(t){
   view = t;
@@ -425,11 +452,11 @@ function renderResult(r){
     chart=`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`+
       pts.map((p,i)=>{const h=(p.c-lo)/(hi-lo)*(H-8);const col=p.c>=43?"#ff5a4e":p.c>=40?"#ffb13d":"#62d26f";
         return `<rect x="${i*bw}" y="${H-h}" width="${Math.max(1,bw-1)}" height="${h}" fill="${col}"><title>${p.up}s: ${p.c} °C</title></rect>`}).join("")+
-      `<line x1="0" x2="${W}" y1="${H-(43-lo)/(hi-lo)*(H-8)}" y2="${H-(43-lo)/(hi-lo)*(H-8)}" stroke="#2b2d42" stroke-dasharray="6 5" stroke-width="2"/></svg>
+      `<line x1="0" x2="${W}" y1="${H-(43-lo)/(hi-lo)*(H-8)}" y2="${H-(43-lo)/(hi-lo)*(H-8)}" style="stroke:var(--text)" stroke-dasharray="6 5" stroke-width="2"/></svg>
       <div class="legend"><span>${r.boot?"Segundos desde que o celular ligou":"Tempo de medição"} →</span><span>tracejado = 43 °C</span></div>`;
   }
   el.innerHTML=`<h2>Resultado ${r.boot?"do boot":"do uso"} · ${r.model}</h2>
-    <div class="big"><span class="t" style="color:${r.peak>=43?"var(--red)":r.peak>=40?"var(--orange2)":"var(--green2)"}">${r.peak?.toFixed(1)} °C</span>
+    <div class="big"><span class="t" style="color:${r.peak>=43?"var(--red)":r.peak>=40?"var(--whyo)":"var(--okt)"}">${r.peak?.toFixed(1)} °C</span>
       <span>pico da bateria</span></div>
     ${chart}
     ${r.findings.map(f=>`<div class="find ${f.level}"><div class="ic"></div><div><b>${f.title}</b><span>${f.text}</span></div></div>`).join("")}
@@ -460,21 +487,22 @@ async function livePhone(){
   let j; try{ j = await (await fetch("/api/phone/live")).json(); }catch{ return; }
   const n = j.now;
   if(!n){ el.innerHTML = j.off ? "" : `<div class="card"><h2>Celular ao vivo</h2><div class="empty2"><span class="spin"></span> Lendo o celular…</div></div>`; return; }
-  const tc = v => v==null?"var(--muted)":v>=43?"var(--red)":v>=40?"var(--orange2)":v>=35?"var(--sun2)":"var(--green2)";
+  const tc = v => v==null?"var(--muted)":v>=43?"var(--red)":v>=40?"var(--whyo)":v>=35?"var(--sun2)":"var(--okt)";
   const tm = v => v==null?0:Math.min(100,Math.max(0,(v-25)/22*100));
   const maxc = Math.max(5, ...n.procs.map(p=>p.cpu));
+  const body = n.skin_temp ?? n.bat_temp;   // temperatura do celular (corpo); sem o sensor, a da bateria
   const H = j.hist||[];
   const fmtB2 = b => b==null?"—":b>=1<<30?(b/(1<<30)).toFixed(1)+" GB":Math.round(b/(1<<20))+" MB";
   el.innerHTML = `<div class="card"><h2>Celular ao vivo <small>atualiza a cada 3 s pelo cabo</small></h2>
     <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
-      <div class="stat"><div class="k">Bateria</div><div class="v" style="color:${tc(n.bat_temp)}">${n.bat_temp?.toFixed(1)??"—"} °C</div>
-        ${meter(tm(n.bat_temp), tc(n.bat_temp))}<div class="s">${n.level??"?"}%${n.charging?" · carregando":""} · sistema ${THN[n.thermal]??"?"}</div></div>
+      <div class="stat"><div class="k">Celular</div><div class="v" style="color:${tc(body)}">${body?.toFixed(1)??"—"} °C</div>
+        ${meter(tm(body), tc(body))}<div class="s">${n.level??"?"}%${n.charging?" · carregando":""} · sistema ${THN[n.thermal]??"?"}</div></div>
       <div class="stat"><div class="k">Processador</div><div class="v">${n.cpu??"—"}%</div>${meter(n.cpu||0)}
         <div class="s">${n.ncpu} núcleos${n.freq_ghz?` · até ${n.freq_ghz} GHz`:""}${n.cpu_temp?` · ${n.cpu_temp} °C`:""}</div></div>
       <div class="stat"><div class="k">Memória</div><div class="v">${n.mem_pct??"—"}%</div>${meter(n.mem_pct||0)}
         <div class="s">${fmtB2(n.mem_used)} de ${fmtB2(n.mem_total)}${n.swap_used?` · ${fmtB2(n.swap_used)} no disco`:""}</div></div>
       <div class="stat"><div class="k">${n.charging?"Carga entrando":"Consumo da bateria"}</div><div class="v">${n.watts!=null?n.watts+" W":"—"}</div>${meter(n.watts!=null?Math.min(100,n.watts/8*100):0, n.watts>=5?"var(--red)":n.watts>=3?"var(--orange)":"var(--green)")}
-        <div class="s">${n.current_ma!=null?Math.abs(n.current_ma)+" mA"+(n.current_ma>0&&n.charging?" entrando":" saindo"):""}${n.skin_temp?` · carcaça ${n.skin_temp} °C`:""}${n.gpu!=null?` · vídeo ${n.gpu}%`:""}</div></div>
+        <div class="s">${n.current_ma!=null?Math.abs(n.current_ma)+" mA"+(n.current_ma>0&&n.charging?" entrando":" saindo"):""}${n.bat_temp!=null?` · bateria ${n.bat_temp.toFixed(1)} °C`:""}${n.gpu!=null?` · vídeo ${n.gpu}%`:""}</div></div>
     </div>
     <p class="hint" style="margin:12px 0 6px">Na tela agora: <b>${n.screen?(n.fg_name||"—"):"tela desligada"}</b></p>
     ${H.length>2?`<h2 style="font-size:15px;margin:8px 0 4px">Temperatura da bateria <small>últimos ${Math.max(1,Math.round((H[H.length-1].t-H[0].t)/60))} min</small></h2>
@@ -487,7 +515,7 @@ async function livePhone(){
       <div class="b ${p.kind}" style="width:${Math.max(2,p.cpu/maxc*100)}%"></div><span>${p.cpu}% · ${fmtB2(p.mem)}</span></div>`).join("") || `<div class="empty2">Nada pesando agora.</div>`}
     ${(j.session||[]).length?`<p class="hint" style="margin-top:10px">Desde que você abriu este painel, quem mais gastou:
       <b>${j.session.slice(0,5).map(s=>`${s.name} (${Math.round(s.secs)} s)`).join(", ")}</b>.</p>`:""}
-    ${j.error?`<p class="hint" style="color:var(--red2)">Última leitura falhou: ${j.error}</p>`:""}
+    ${j.error?`<p class="hint" style="color:var(--why)">Última leitura falhou: ${j.error}</p>`:""}
   </div>`;
 }
 setInterval(livePhone, 3000);
@@ -495,6 +523,7 @@ setInterval(livePhone, 3000);
 mascot(null); poll(); setInterval(poll, 2500);
 </script>
 <script src="/ui_pc.js"></script>
+<script src="/ui_sky.js"></script>
 <script>if(HAS_PC) mainTab("pc"); else { $("#mainTabs").hidden=true; mainTab("phone"); }</script>
 </body>
 </html>

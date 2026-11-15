@@ -270,6 +270,7 @@ class State:
 
 S = State()
 import celular_live  # noqa: E402
+import tema  # noqa: E402
 LIVE = celular_live.PhoneLive(S.adb)
 
 
@@ -574,10 +575,10 @@ class Handler(BaseHTTPRequestHandler):
         path, _, qs = self.path.partition("?")
         if path in ("/", "/index.html"):
             html = (HERE / "ui.html").read_text(encoding="utf-8").replace("%%TOKEN%%", TOKEN)
-            html = html.replace("%%PC%%", "1" if pc_api else "0")
+            html = html.replace("%%PC%%", "1" if pc_api else "0").replace("%%THEME%%", tema.theme())
             return self.send(200, html, "text/html")
-        if path == "/ui_pc.js":
-            return self.send(200, (HERE / "ui_pc.js").read_text(encoding="utf-8"), "text/javascript")
+        if path in ("/ui_pc.js", "/ui_sky.js"):
+            return self.send(200, (HERE / path[1:]).read_text(encoding="utf-8"), "text/javascript")
         if path.startswith("/api/pc/"):
             if not pc_api:
                 return self.send(404, "{}")
@@ -586,6 +587,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 return self.send(500, json.dumps({"error": str(e)}))
             return self.send(200 if res is not None else 404, pc_api.dumps(res if res is not None else {}))
+        if path == "/api/sky":
+            return self.send(200, json.dumps(tema.sky()))
         if self.path == "/api/status":
             phone = S.refresh() if not S.busy or S.scan.get("phase") == "running" else S.__dict__.get("_last", {})
             S._last = phone
@@ -616,6 +619,13 @@ class Handler(BaseHTTPRequestHandler):
                 body = {}
             code, res = pc_api.post(self.path, body)
             return self.send(code, pc_api.dumps(res))
+        if self.path == "/api/prefs":
+            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}") if 0 < n < 4096 else {}
+            except ValueError:
+                body = {}
+            return self.send(200, json.dumps(tema.set_prefs(body if isinstance(body, dict) else {})))
         m = re.fullmatch(r"/api/action/(\w+)(?:/(\d+))?", self.path)
         if m and m.group(1) in ACTIONS:
             ok = start_action(m.group(1), m.group(2))

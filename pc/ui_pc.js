@@ -32,7 +32,7 @@ function confirmBox(title, text, ok="Confirmar", cls="r"){
   return new Promise(res => {
     const m = document.createElement("div"); m.className = "modal";
     m.innerHTML = `<div class="card"><h3>${title}</h3><p>${text}</p><div class="btns">
-      <button class="${cls}" data-ok>${ok}</button><button class="w sm" style="background:#fff;color:var(--ink)" data-no>Cancelar</button></div></div>`;
+      <button class="${cls}" data-ok>${ok}</button><button class="w sm" style="background:var(--card);color:var(--text)" data-no>Cancelar</button></div></div>`;
     document.body.appendChild(m);
     m.querySelector("[data-ok]").onclick = () => { m.remove(); res(true); };
     m.querySelector("[data-no]").onclick = () => { m.remove(); res(false); };
@@ -135,7 +135,7 @@ function renderPainel(L){
   const sysDrive = null;
   const fs = L.findings||[];
   const bad = fs.filter(f=>f.level==="danger"||f.level==="warn");
-  const scol = L.score>=80?"var(--green2)":L.score>=55?"var(--orange2)":"var(--red)";
+  const scol = L.score>=80?"var(--okt)":L.score>=55?"var(--whyo)":"var(--red)";
   const findHTML = fs.filter(f=>f.level!=="ok").slice(0,9).map(f=>`<div class="find ${f.level==="danger"?"danger":f.level}">
       <div class="ic"></div><div><b>${esc(f.title)}</b><span>${esc(f.text)}</span>
       ${f.tab?`<div class="act"><button class="sm" onclick="showTab('${f.tab}')">Resolver →</button></div>`:""}</div></div>`).join("")
@@ -195,7 +195,7 @@ function procsShell(){
   return `<div class="card">
     <h2>Programas rodando agora <small id="procCount"></small></h2>
     <p class="hint">Agrupados por programa (ex.: todas as abas do navegador juntas). <b>Encerrar</b> fecha na hora; o que não foi salvo nele se perde.
-      Os marcados em <b style="color:var(--red)">vermelho</b> ou <b style="color:var(--orange2)">laranja</b> têm algo estranho: veja o motivo embaixo do nome.</p>
+      Os marcados em <b style="color:var(--red)">vermelho</b> ou <b style="color:var(--whyo)">laranja</b> têm algo estranho: veja o motivo embaixo do nome.</p>
     <div class="tbar"><input class="in" id="procQ" placeholder="Procurar programa…" value="${esc(PC.procQ)}" oninput="PC.procQ=this.value;renderLive()">
       <span class="seg">${[["cpu","Processador"],["mem","Memória"],["sess","Desde que abriu"],["risk","Suspeitos"]].map(([k,l])=>`<button class="${PC.procSort===k?"sel":""}" onclick="PC.procSort='${k}';showTab('procs')">${l}</button>`).join("")}</span>
       <label style="font-size:14px;display:flex;gap:6px;align-items:center"><input type="checkbox" class="chk" ${PC.showWin?"checked":""} onchange="PC.showWin=this.checked;renderLive()"> Mostrar processos do Windows</label>
@@ -453,7 +453,7 @@ async function renderTree(el, path){
     <h2>${esc(t.path)} <small>${fmtB(t.bytes)} · ${t.files.toLocaleString("pt-BR")} arquivos</small><span class="sp"></span>
       <button class="sm w" onclick='doPC("open",{path:${J(t.path)}})'>Abrir no Explorer</button></h2>
     <p class="hint">Clique numa pasta para entrar. As maiores ficam em cima. Pastas do Windows e de programas ficam protegidas.</p>
-    <div class="list">${t.kids.map(k=>`<div class="it folder" onclick='renderTree($("#dv"),${J(k.path)})'><div class="ico app" style="background:var(--sun);color:var(--ink)">📁</div>
+    <div class="list">${t.kids.map(k=>`<div class="it folder" onclick='renderTree($("#dv"),${J(k.path)})'><div class="ico app" style="background:var(--sun);color:var(--onlight)">📁</div>
       <div style="min-width:0"><div class="t">${esc(k.name)}</div><div class="fbar"><i style="width:${k.bytes/max*100}%"></i></div></div>
       <div class="r"><span class="mini">${k.files.toLocaleString("pt-BR")} arq.<b>${fmtB(k.bytes)}</b></span>
         <button class="sm w" onclick='event.stopPropagation();doPC("open",{path:${J(k.path)}})'>📁</button>
@@ -527,9 +527,9 @@ async function renderDups(el, sum){
     <p class="hint">Em cada grupo, os arquivos são <b>idênticos</b>. Marque as cópias que quer apagar (vão para a Lixeira). O botão abaixo marca todas as cópias e <b>mantém o arquivo mais antigo</b> de cada grupo.</p>
     <div class="tbar"><button class="sm y" onclick="dupAuto()">Marcar cópias (manter o mais antigo)</button><button class="sm w" onclick="PC.disk.dupSel.clear();syncDupChecks()">Desmarcar</button>
       <span style="flex:1"></span><button class="sm r" id="recBtnDup" ${sel.size?"":"disabled"} onclick="recycle([...PC.disk.dupSel])">Mandar ${sel.size||""} para a Lixeira${sel.size?` (${fmtB(selB)})`:""}</button></div>
-    ${r.groups.slice(0,150).map(g=>`<div class="grp"><div class="h">${g.count} cópias · ${fmtB(g.size)} cada · <span style="color:var(--red2)">${fmtB(g.waste)} sobrando</span> <span class="tag g">${esc(g.cat)}</span></div>
+    ${r.groups.slice(0,150).map(g=>`<div class="grp"><div class="h">${g.count} cópias · ${fmtB(g.size)} cada · <span style="color:var(--why)">${fmtB(g.waste)} sobrando</span> <span class="tag g">${esc(g.cat)}</span></div>
       ${g.files.map((f,i)=>`<div class="it" style="padding:5px 0"><div><input type="checkbox" class="chk" data-dup="${esc(f.path)}" ${sel.has(f.path)?"checked":""} onchange='selDup(${J(f.path)},this.checked)'></div>
-        <div style="min-width:0"><div class="d" style="color:var(--ink)" title="${esc(f.path)}">${esc(f.path)}</div><div class="d">${fmtD(f.mtime)}${i===0?" · mais antigo":""}</div></div>
+        <div style="min-width:0"><div class="d" style="color:var(--text)" title="${esc(f.path)}">${esc(f.path)}</div><div class="d">${fmtD(f.mtime)}${i===0?" · mais antigo":""}</div></div>
         <div class="r"><button class="sm w" onclick='doPC("open",{path:${J(f.path)}})'>📁</button></div></div>`).join("")}</div>`).join("") || `<div class="empty2">Nenhum duplicado encontrado. 👍</div>`}</div>`;
 }
 function dupAuto(){ (PC.disk.dups||[]).forEach(g=>g.files.slice(1).forEach(f=>PC.disk.dupSel.add(f.path))); syncDupChecks(); }
@@ -587,7 +587,7 @@ function renderDrivers(){
     h += `<div class="card"><h2>Atualizações disponíveis <small>${ups.length} no Windows Update</small><span class="sp"></span>
         <button class="sm w" onclick="doPC('drv_wu')">Abrir no Windows</button>
         <button class="g" id="drvBtn" ${n&&!busy?"":"disabled"} onclick="drvInstall()">Instalar ${n||""} selecionado(s)</button></h2>
-      ${D.wu_error?`<p class="hint" style="color:var(--red2)">${esc(D.wu_error)}</p>`:""}
+      ${D.wu_error?`<p class="hint" style="color:var(--why)">${esc(D.wu_error)}</p>`:""}
       <p class="hint">Já deixei marcados só os que são <b>mais novos</b> que o seu. O Windows às vezes oferece um driver <b>mais velho</b> do que o instalado: esses ficam desmarcados.
         Instalar pede permissão de administrador; a tela pode piscar e o som/internet cair por alguns segundos.</p>
       <div class="list">${ups.map(u=>{ const k = KIND[u.kind]||KIND.sem_data;
@@ -691,7 +691,7 @@ function renderBackup(){
     <div class="card"><h2>2. Imagem completa do sistema <small>demorada · opcional</small></h2>
       <p class="hint">Cópia <b>inteira</b> do disco C: (Windows, programas e arquivos) para outro disco. Serve se o ponto de restauração não resolver.
         Leva de <b>30 min a 2 h</b> e precisa de uns <b>${fmtB((B.need||0)*1.15)}</b> livres no disco de destino.</p>
-      <p class="hint" style="color:var(--red2)">Disco <b>interno</b> fica dentro do computador: a imagem nele protege contra problemas no Windows, mas não se o computador quebrar ou for roubado.
+      <p class="hint" style="color:var(--why)">Disco <b>interno</b> fica dentro do computador: a imagem nele protege contra problemas no Windows, mas não se o computador quebrar ou for roubado.
         Para isso, use um <b>HD externo</b> (conecte antes de abrir esta aba).</p>
       <div class="list">${(B.targets||[]).map(t=>`<label class="it" style="cursor:pointer"><div><input type="radio" name="bkT" ${PC.bkTarget===t.letter?"checked":""} ${t.fits?"":"disabled"} onchange="PC.bkTarget='${t.letter}'"></div>
         <div style="min-width:0"><div class="t">${esc(t.letter)} ${esc(t.label)}${t.external?`<span class="tag ok">externo</span>`:`<span class="tag g">interno</span>`}${t.fits?"":`<span class="tag medio">não cabe</span>`}</div>
@@ -701,13 +701,13 @@ function renderBackup(){
     </div>
   </div>
   <div class="card" style="border-color:var(--red2)">
-    <details ${PC._bkOpen?"open":""} ontoggle="PC._bkOpen=this.open"><summary style="cursor:pointer;font-family:var(--head);font-size:18px;color:var(--red2)">⚠ Voltar para um backup (só se o Windows estiver com problema)</summary>
+    <details ${PC._bkOpen?"open":""} ontoggle="PC._bkOpen=this.open"><summary style="cursor:pointer;font-family:var(--head);font-size:18px;color:var(--why)">⚠ Voltar para um backup (só se o Windows estiver com problema)</summary>
       <div class="row r2" style="margin-top:12px">
         <div><b>Use quando:</b><ol class="tips">
           <li>Aparece <b>tela azul</b> repetida depois de instalar um driver ou atualização.</li>
           <li>O <b>som, Wi-Fi, tela ou teclado pararam</b> depois de uma instalação.</li>
           <li>O Windows ficou instável logo depois de uma mudança e reiniciar não resolveu.</li></ol></div>
-        <div><b style="color:var(--red2)">NÃO use quando:</b><ol class="tips">
+        <div><b style="color:var(--why)">NÃO use quando:</b><ol class="tips">
           <li>O PC só está <b>quente ou lento</b> → use a aba <a href="#" onclick="showTab('esfriar');return false">Esfriar</a>.</li>
           <li>Você acha que tem <b>vírus</b> → use a aba <a href="#" onclick="showTab('seg');return false">Segurança</a> (voltar não garante tirar vírus).</li>
           <li>Você <b>apagou uma foto ou documento</b> → o backup não traz arquivos pessoais de volta. Procure na Lixeira.</li>
@@ -750,7 +750,7 @@ function restoreGate(kind){
       "Salvei e fechei tudo o que estava aberto. O PC vai reiniciar e eu <b>não vou desligar</b> no meio."];
   return new Promise(res => {
     const m = document.createElement("div"); m.className = "modal";
-    m.innerHTML = `<div class="card" style="max-width:560px"><h3 style="color:var(--red2)">⚠ ${img?"Voltar para a imagem completa":"Voltar para um ponto de restauração"}</h3>
+    m.innerHTML = `<div class="card" style="max-width:560px"><h3 style="color:var(--why)">⚠ ${img?"Voltar para a imagem completa":"Voltar para um ponto de restauração"}</h3>
       <p>${img?"Isso é <b>muito mais drástico</b> que o ponto de restauração. Só faça se ele não resolveu."
         :pts[0]?`O ponto mais recente é <b>${esc(pts[0].desc)}</b> de ${new Date(pts[0].when).toLocaleString("pt-BR")}. Você escolhe qual usar na próxima tela.`:"Você escolhe qual ponto usar na próxima tela."}</p>
       ${checks.map((c,i)=>`<label style="display:flex;gap:8px;margin:8px 0;align-items:flex-start;cursor:pointer"><input type="checkbox" class="chk" data-g="${i}"><span>${c}</span></label>`).join("")}
@@ -758,7 +758,7 @@ function restoreGate(kind){
       <input class="in" data-word autocomplete="off" style="width:100%">
       <p class="hint" style="margin-top:8px">${img?"Vai abrir a tela <b>Recuperação</b> do Windows. Lá, em <b>Inicialização avançada → Reiniciar agora</b>, depois <b>Solução de problemas → Opções avançadas → Recuperação de Imagem do Sistema</b>."
         :"Vai abrir o assistente oficial do Windows. Ele ainda mostra mais uma confirmação antes de começar."}</p>
-      <div class="btns"><button class="r" data-ok disabled>Abrir a tela do Windows</button><button class="w sm" style="background:#fff;color:var(--ink)" data-no>Cancelar (não quero)</button></div></div>`;
+      <div class="btns"><button class="r" data-ok disabled>Abrir a tela do Windows</button><button class="w sm" style="background:var(--card);color:var(--text)" data-no>Cancelar (não quero)</button></div></div>`;
     document.body.appendChild(m);
     const ok = m.querySelector("[data-ok]"), word = m.querySelector("[data-word]");
     const check = () => { ok.disabled = !([...m.querySelectorAll("[data-g]")].every(c=>c.checked) && word.value.trim().toUpperCase()==="RESTAURAR"); };
@@ -878,7 +878,7 @@ function renderSec(){
   if(R===null && !running && !PC._secLoaded){ PC._secLoaded = true; loadSec(); }
   const susp = (L.procs||[]).filter(p=>p.risk);
   const d = R?.defender||{};
-  const card = (k, ok, v, s) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:22px;color:${ok===null?"var(--muted)":ok?"var(--green2)":"var(--red)"}">${v}</div><div class="s">${s||""}</div></div>`;
+  const card = (k, ok, v, s) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:22px;color:${ok===null?"var(--muted)":ok?"var(--okt)":"var(--red)"}">${v}</div><div class="s">${s||""}</div></div>`;
   let h = threatsHTML(L) + defenderHTML(L) + `<div class="card"><h2>Verificação completa do PC <span class="sp"></span>
       <button class="g" ${running||L.busy?"disabled":""} onclick="doPC('sec_scan');PC._secWasBusy=true">${running?`<span class="spin"></span> Verificando…`:R?"Verificar de novo":"Verificar agora"}</button></h2>
     <p class="hint">Confere o antivírus, o firewall, as ameaças que o Windows já encontrou, a assinatura digital dos programas abertos,
@@ -899,7 +899,7 @@ function renderSec(){
         <div class="d" title="${esc((t.res||[]).join("; "))}">${fmtD(t.when)} · ${esc((t.res||[]).join("; "))}</div></div><div class="r"></div></div>`).join("")}</div></div>`;
     const f = R.files||{};
     const oldRansom = f.ransom_newest && (Date.now()/1000 - f.ransom_newest) > 365*86400;
-    if(f.ransom_count) h += `<div class="card" style="border-color:var(--red2)"><h2 style="color:var(--red2)">${oldRansom?"Restos de um vírus antigo (STOP/Djvu)":"Rastros do vírus que sequestra arquivos (STOP/Djvu)"}</h2>
+    if(f.ransom_count) h += `<div class="card" style="border-color:var(--red2)"><h2 style="color:var(--why)">${oldRansom?"Restos de um vírus antigo (STOP/Djvu)":"Rastros do vírus que sequestra arquivos (STOP/Djvu)"}</h2>
       <p class="hint">Achei ${f.ransom_count} arquivo(s) de resgate ou decodificador.
       ${oldRansom?`O bilhete mais novo é de <b>${new Date(f.ransom_newest*1000).toLocaleDateString("pt-BR",{month:"2-digit",year:"numeric"})}</b> e nada foi sequestrado depois disso: é resto de uma infecção antiga, <b>não um vírus ativo</b>. Os arquivos sequestrados daquela época só voltam com a chave dos criminosos.`
       :`Esse vírus costuma instalar junto <b>ladrões de senha e mineradores</b>. Rode a <b>verificação offline</b> e troque as senhas importantes <b>usando outro aparelho</b>.`}</p>
@@ -941,7 +941,7 @@ function renderReport(){
       <p class="hint">A pasta do seu usuário é trocada por %USERPROFILE% no texto. Nada sai do PC: você decide onde colar.</p>
       <div class="btns"><button class="g" onclick="genReport()">${R?"Gerar de novo":"Gerar relatório"}</button></div>
       ${R?`<div class="btns" style="margin-top:12px"><button class="y" onclick="copyReport()">Copiar</button><button onclick="saveReport()">Salvar .md</button>
-        <button class="w sm" style="background:#fff;color:var(--ink)" onclick="fetch('/api/open-reports',{method:'POST',headers:{'X-Token':TOKEN}})">Abrir pasta</button></div>
+        <button class="w sm" style="background:var(--card);color:var(--text)" onclick="fetch('/api/open-reports',{method:'POST',headers:{'X-Token':TOKEN}})">Abrir pasta</button></div>
         <p class="hint" style="margin-top:10px">Salvo em ${esc(R.file)}</p>`:""}</div>
     <div class="card"><h2>${R?`Prévia <small>nota ${R.score}/100 · ${esc(R.label)}</small>`:"Prévia"}</h2>
       ${R?`<pre class="md">${esc(R.md)}</pre>`:`<div class="empty2">Clique em <b>Gerar relatório</b>.</div>`}</div></div>`;

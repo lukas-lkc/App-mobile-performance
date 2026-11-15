@@ -8,6 +8,7 @@ import urllib.parse
 import webbrowser
 from pathlib import Path
 
+import assistentes
 import backup
 import discos
 import drivers
@@ -126,6 +127,8 @@ def get(path, qs):
     if path == "/api/pc/security":
         return {"result": SEC.result, "running": SEC.running, "quick": SEC.quick_result, "quick_running": SEC.quick_running,
                 "ignored": seguranca.ignore_load()}
+    if path == "/api/pc/assist":
+        return {"items": assistentes.listing(INV.system(), q.get("refresh") == "1")}
     if path == "/api/pc/backup":
         return backup.state()
     if path == "/api/pc/vt":
@@ -256,6 +259,8 @@ def post(path, body):
                                                           JOBS.say("Ponto criado ✓ Agora instalando os drivers…"),
                                                           DRV.install(ids, JOBS.say))[2])
             return job("Instalando drivers", DRV.install, ids, JOBS.say)
+        if a == "assist_open":
+            return ok(assistentes.open_assistant(body.get("id"), body.get("mode", "auto")))
         if a == "bk_refresh":
             return job("Lendo os backups", backup.refresh, JOBS.say)
         if a == "bk_point":

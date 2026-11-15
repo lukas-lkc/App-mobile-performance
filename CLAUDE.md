@@ -82,6 +82,10 @@ briga). Com mais de um aparelho, sempre `-s <serial>`.
   `%LOCALAPPDATA%\CalorScan\vt_key.txt` (nunca no repositório); cache 3 dias em `vt_cache.json`; conta grátis = 4/min
   (`GAP` 15,5 s; "Conferir todos" espera sozinho). Para apps, `main_exe()` acha o .exe principal da pasta.
   Veredito: ≥5 antivírus = vírus; 2–4 = suspeito; 0–1 = limpo.
+- `assistentes.py` (topo da aba Drivers): assistentes dos fabricantes que combinam com o PC (processador, placas de
+  vídeo, marca). Os sites da Intel/NVIDIA/AMD **bloqueiam iframe** (`frame-ancestors`), então: programa instalado abre
+  por `explorer shell:AppsFolder\<AppID>` (AppID vem de `Get-StartApps`); senão o site oficial abre em `msedge --app=`
+  (janela sem abas/barra). Só URLs da lista `ASSIST`. Intel DSA prefere o site (ele conversa com o serviço local da Intel).
 - `backup.py` (aba Backup): ponto de restauração (`Checkpoint-Computer`, liga a Proteção do Sistema no C: se preciso,
   reserva 8 GB, zera `SystemRestorePointCreationFrequency` só durante a criação e devolve o valor antigo) e imagem do
   sistema (`wbadmin start backup -allCritical`, nunca no C:). Ler/criar pede admin; a lista fica em

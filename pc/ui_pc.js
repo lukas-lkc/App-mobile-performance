@@ -563,7 +563,8 @@ async function doCleanup(){
 /* ---------------- drivers ---------------- */
 async function loadDrivers(refresh){
   if(!PC.drv) $("#pcBody").innerHTML = `<div class="card empty2"><span class="spin"></span> Lendo os drivers instalados…</div>`;
-  PC.drv = await api("/api/pc/drivers" + (refresh?"?refresh=1":""));
+  const [d, as] = await Promise.all([api("/api/pc/drivers" + (refresh?"?refresh=1":"")), api("/api/pc/assist" + (refresh?"?refresh=1":""))]);
+  PC.drv = d; PC.assist = as.items;
   if(!PC.drvSel && PC.drv.updates) PC.drvSel = new Set(PC.drv.updates.filter(u=>u.kind==="novo").map(u=>u.id));
   if(PC.tab==="drivers") renderDrivers();
 }
@@ -577,7 +578,8 @@ function renderDrivers(){
       <button class="sm w" ${busy?"disabled":""} onclick="loadDrivers(true)">Ler de novo</button>
       <button class="g" ${searching||busy?"disabled":""} onclick="drvSearch()">${searching?`<span class="spin"></span> Procurando…`:"Procurar atualizações"}</button></h2>
     <p class="hint">Driver é o programa que faz cada peça (placa de vídeo, som, Wi-Fi) funcionar. Driver velho pode causar <b>calor, travadas, som e Wi-Fi caindo</b>.
-      O botão <b>Procurar atualizações</b> usa o Windows Update (o jeito mais seguro). O que o Windows não tiver, o botão <b>Site</b> abre a página oficial do fabricante.</p></div>`;
+      O botão <b>Procurar atualizações</b> usa o Windows Update (o jeito mais seguro). O que o Windows não tiver, os <b>assistentes dos fabricantes</b> abaixo encontram.
+      Antes de instalar, crie um <a href="#" onclick="showTab('backup');return false">ponto de restauração</a>.</p></div>` + assistHTML();
   // atualizações do Windows Update
   if(ups==null) h += `<div class="card"><h2>Atualizações disponíveis</h2><div class="empty2">${searching?`<span class="spin"></span> Conversando com o Windows Update… (até 3 min)`:`Clique em <b>Procurar atualizações</b>.`}</div></div>`;
   else {
@@ -606,6 +608,30 @@ function renderDrivers(){
     <div class="list">${rest.map(drvRow).join("") || `<div class="empty2">${D.items?"Nenhum.":"<span class='spin'></span> Lendo…"}</div>`}</div></div>`;
   $("#pcBody").innerHTML = h;
 }
+function assistHTML(){
+  const A = PC.assist; if(!A) return "";
+  const card = a => {
+    const btns = [];
+    if(a.installed) btns.push(`<button class="sm g" onclick='assistOpen(${J(a.id)},"auto")'>Abrir</button>`);
+    else if(a.web) btns.push(`<button class="sm g" onclick='assistOpen(${J(a.id)},"web")'>${a.old?"Conhecer e baixar":"Abrir o site"}</button>`);
+    if(a.old) btns.push(`<button class="sm w" onclick='assistOpen(${J(a.id)},"old")'>Abrir ${esc(a.old)}</button>`);
+    if(a.installed && a.prefer_web) btns.push(`<button class="sm w" title="Abre o programa em vez do site" onclick='assistOpen(${J(a.id)},"app")'>Programa</button>`);
+    const tag = a.installed ? `<span class="tag ok">instalado</span>` : a.old ? `<span class="tag medio">versão antiga</span>` : `<span class="tag g">pelo site</span>`;
+    return `<div class="it"><div class="ico app">${esc(a.name.slice(0,1))}</div>
+      <div style="min-width:0"><div class="t">${esc(a.name)}${tag}</div>
+        <div class="d" style="white-space:normal">${esc(a.what)}${a.note&&a.installed?" "+esc(a.note):""}${a.old_note?`<br><b>${esc(a.old_note)}</b>`:""}</div></div>
+      <div class="r">${btns.join("")}</div></div>`;
+  };
+  return `<div class="card"><h2>Assistentes dos fabricantes <small>só os que servem para este PC</small><span class="sp"></span>
+      <button class="sm w" onclick="loadDrivers(true)">Procurar de novo</button></h2>
+    <p class="hint">Cada fabricante tem o seu: eles conhecem o <b>seu modelo</b> e acham drivers que o Windows Update não tem.
+      Abrem numa <b>janela própria</b>, sem abas nem barra de endereço (os sites dos fabricantes não deixam ser mostrados dentro de outro programa).</p>
+    <div class="list">
+      <div class="it"><div class="ico app">W</div><div style="min-width:0"><div class="t">Windows Update<span class="tag ok">aqui dentro</span></div>
+        <div class="d" style="white-space:normal">Use o botão <b>Procurar atualizações</b> acima: a lista aparece aqui mesmo, sem abrir nada.</div></div><div class="r"></div></div>
+      ${A.map(card).join("")}</div></div>`;
+}
+async function assistOpen(id, mode){ await doPC("assist_open", {id, mode}); }
 function drvRow(i){
   return `<div class="it"><div class="ico ${i.old?"medio":"app"}">${i.old?"!":"⚙"}</div>
     <div style="min-width:0"><div class="t">${esc(i.dev)}${i.old?`<span class="tag medio">antigo</span>`:""}<span class="tag g">${esc(i.group)}</span></div>

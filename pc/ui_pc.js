@@ -5,7 +5,7 @@ const PC = {tab: "painel", live: null, apps: null, startup: null, sec: null, dis
                    dupSel: new Set(), dups: null, clean: null, cleanSel: new Set(["temp", "browser", "thumbs"])},
             report: null, timer: null};
 const TABS = [["painel","Painel"],["procs","Processos"],["apps","Apps"],["inicio","Inicialização"],["esfriar","Esfriar"],
-              ["discos","Discos"],["drivers","Drivers"],["seg","Segurança"],["relatorio","Relatório para IA"]];
+              ["discos","Discos"],["drivers","Drivers"],["backup","Backup"],["seg","Segurança"],["relatorio","Relatório para IA"]];
 
 /* ---------------- utilidades ---------------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -63,6 +63,7 @@ function showTab(t){
   else if(t==="esfriar") loadPower();
   else if(t==="discos") loadDisks();
   else if(t==="drivers") loadDrivers();
+  else if(t==="backup") loadBackup();
   else if(t==="seg"){ renderSec(); loadVt().then(loadSec); loadDefender(); }
   else if(t==="relatorio") renderReport();
   window.scrollTo({top:0});
@@ -98,6 +99,11 @@ async function livePoll(){
     if(PC._secWasBusy && !secBusy){ loadSec(); loadDefender(); }
     else if(secBusy && !PC._secWasBusy) renderSec();
     PC._secWasBusy = secBusy;
+  }
+  if(PC.tab==="backup"){
+    const b = !!L.busy;
+    if(PC._bkWasBusy && !b) loadBackup(); else if(b && !PC._bkWasBusy) renderBackup();
+    PC._bkWasBusy = b;
   }
   if(PC.tab==="drivers"){
     const b = L.drv_searching || (L.busy||"").includes("driver");
@@ -615,9 +621,128 @@ async function drvSearch(){ PC.drvSel = null; await doPC("drv_search"); PC._drvW
 async function drvInstall(){
   const ids = [...PC.drvSel], ups = (PC.drv.updates||[]).filter(u=>ids.includes(u.id));
   const fw = ups.some(u=>u.kind==="firmware"), velho = ups.some(u=>u.kind==="velho");
+  PC._drvPoint = true;
   if(!await confirmBox(`Instalar ${ids.length} driver(s)?`, `Vai baixar do Windows Update e instalar. O Windows vai pedir permissão de administrador. Salve o que estiver fazendo: a tela pode piscar.`
-      + (fw?`<br><br><b>Inclui a BIOS:</b> deixe na tomada e não desligue o PC.`:"") + (velho?`<br><br><b>Atenção:</b> você marcou um driver mais velho que o instalado.`:""), "Instalar", "g")) return;
-  await doPC("drv_install", {ids}); PC.drvSel = null; PC._drvWasBusy = true;
+      + (fw?`<br><br><b>Inclui a BIOS:</b> deixe na tomada e não desligue o PC.`:"") + (velho?`<br><br><b>Atenção:</b> você marcou um driver mais velho que o instalado.`:"")
+      + `<br><br><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" class="chk" checked onchange="PC._drvPoint=this.checked">
+         <span><b>Criar um ponto de restauração antes</b> (recomendado). Se der tela azul, dá para voltar pela aba Backup. Leva 1 a 3 min a mais.</span></label>`, "Instalar", "g")) return;
+  await doPC("drv_install", {ids, point: PC._drvPoint}); PC.drvSel = null; PC._drvWasBusy = true;
+}
+
+/* ---------------- backup ---------------- */
+async function loadBackup(){
+  if(!PC.bk) $("#pcBody").innerHTML = `<div class="card empty2"><span class="spin"></span> Lendo os backups…</div>`;
+  PC.bk = await api("/api/pc/backup");
+  if(!PC.bkTarget){ const t = (PC.bk.targets||[]).filter(x=>x.fits).sort((a,b)=>(b.external-a.external)||(b.free-a.free))[0]; PC.bkTarget = t?.letter||""; }
+  if(PC.tab==="backup") renderBackup();
+}
+function bkAgo(t){ if(!t) return "nunca"; const s = Date.now()/1000 - t; return s<120?"agora há pouco":"há "+ago(s); }
+function renderBackup(){
+  const B = PC.bk||{}, L = PC.live||{}, busy = !!L.busy;
+  const pts = B.points||[], known = B.checked!=null;
+  const ptAge = pts[0] ? (Date.now() - new Date(pts[0].when).getTime())/1000 : null;
+  const status = !known ? `<span class="tag g">ainda não verificado</span>` : B.on ? `<span class="tag ok">proteção ligada</span>` : `<span class="tag medio">proteção desligada</span>`;
+  const imgs = B.images||[];
+  $("#pcBody").innerHTML = `
+  <div class="card"><h2>Backup do Windows</h2>
+    <p class="hint">Antes de <b>instalar drivers</b>, atualizar a BIOS ou mexer no sistema, crie um <b>ponto de restauração</b>. Se depois aparecer tela azul
+      ou algo parar de funcionar, dá para voltar o Windows como ele estava. <b>Suas fotos e documentos não são apagados</b> por nenhum dos dois.</p>
+    ${ptAge!=null&&ptAge<7*86400?`<div class="find ok"><div class="ic"></div><div><b>Você tem um ponto recente</b><span>${esc(pts[0].desc)} · ${new Date(pts[0].when).toLocaleString("pt-BR")}</span></div></div>`
+      :`<div class="find warn"><div class="ic"></div><div><b>Nenhum ponto de restauração recente</b><span>Crie um agora antes de instalar qualquer driver.</span></div></div>`}</div>
+  <div class="row r2">
+    <div class="card"><h2>1. Ponto de restauração <small>rápido · recomendado</small></h2>
+      <p class="hint">Guarda os arquivos do Windows, os drivers e as configurações. Leva <b>1 a 3 minutos</b> e ocupa pouco espaço.
+        Na primeira vez o CalorScan liga a "Proteção do Sistema" do Windows (reserva até 8 GB do C:). O Windows vai pedir permissão.</p>
+      <div class="tbar"><input class="in" id="bkDesc" style="flex:1;min-width:160px" maxlength="60" placeholder="Nome (ex.: antes do driver NVIDIA)">
+        <button class="g" ${busy?"disabled":""} onclick="bkPoint()">Criar ponto agora</button></div>
+      <h2 style="margin-top:10px">Pontos guardados ${status}<span class="sp"></span><button class="sm w" ${busy?"disabled":""} onclick="doPC('bk_refresh');PC._bkWasBusy=true" title="O Windows pede permissão para mostrar">Ver pontos</button></h2>
+      ${!known?`<p class="hint">O Windows só mostra os pontos com permissão de administrador. Clique em <b>Ver pontos</b>.</p>`
+        :pts.length?`<div class="list">${pts.slice(0,8).map(p=>`<div class="it"><div class="ico app">⟲</div><div style="min-width:0"><div class="t">${esc(p.desc)}</div>
+          <div class="d">${new Date(p.when).toLocaleString("pt-BR")}</div></div><div class="r"></div></div>`).join("")}</div>
+          <p class="hint">O Windows apaga os pontos mais velhos sozinho quando o espaço reservado enche.${B.max?` Espaço reservado: ${esc(B.max)}.`:""}</p>`
+        :`<div class="empty2">Nenhum ponto ainda.</div>`}
+    </div>
+    <div class="card"><h2>2. Imagem completa do sistema <small>demorada · opcional</small></h2>
+      <p class="hint">Cópia <b>inteira</b> do disco C: (Windows, programas e arquivos) para outro disco. Serve se o ponto de restauração não resolver.
+        Leva de <b>30 min a 2 h</b> e precisa de uns <b>${fmtB((B.need||0)*1.15)}</b> livres no disco de destino.</p>
+      <p class="hint" style="color:var(--red2)">Disco <b>interno</b> fica dentro do computador: a imagem nele protege contra problemas no Windows, mas não se o computador quebrar ou for roubado.
+        Para isso, use um <b>HD externo</b> (conecte antes de abrir esta aba).</p>
+      <div class="list">${(B.targets||[]).map(t=>`<label class="it" style="cursor:pointer"><div><input type="radio" name="bkT" ${PC.bkTarget===t.letter?"checked":""} ${t.fits?"":"disabled"} onchange="PC.bkTarget='${t.letter}'"></div>
+        <div style="min-width:0"><div class="t">${esc(t.letter)} ${esc(t.label)}${t.external?`<span class="tag ok">externo</span>`:`<span class="tag g">interno</span>`}${t.fits?"":`<span class="tag medio">não cabe</span>`}</div>
+          <div class="d">${fmtB(t.free)} livres</div></div><div class="r"></div></label>`).join("") || `<div class="empty2">Nenhum outro disco disponível. Conecte um HD externo.</div>`}</div>
+      <div class="btns"><button ${busy||!PC.bkTarget?"disabled":""} onclick="bkImage()">Criar imagem em ${esc(PC.bkTarget||"…")}</button></div>
+      ${imgs.length?`<p class="hint">Imagens já feitas: ${imgs.map(i=>`${esc(i.letter)} (${fmtD(i.when)})`).join(", ")}</p>`:""}
+    </div>
+  </div>
+  <div class="card" style="border-color:var(--red2)">
+    <details ${PC._bkOpen?"open":""} ontoggle="PC._bkOpen=this.open"><summary style="cursor:pointer;font-family:var(--head);font-size:18px;color:var(--red2)">⚠ Voltar para um backup (só se o Windows estiver com problema)</summary>
+      <div class="row r2" style="margin-top:12px">
+        <div><b>Use quando:</b><ol class="tips">
+          <li>Aparece <b>tela azul</b> repetida depois de instalar um driver ou atualização.</li>
+          <li>O <b>som, Wi-Fi, tela ou teclado pararam</b> depois de uma instalação.</li>
+          <li>O Windows ficou instável logo depois de uma mudança e reiniciar não resolveu.</li></ol></div>
+        <div><b style="color:var(--red2)">NÃO use quando:</b><ol class="tips">
+          <li>O PC só está <b>quente ou lento</b> → use a aba <a href="#" onclick="showTab('esfriar');return false">Esfriar</a>.</li>
+          <li>Você acha que tem <b>vírus</b> → use a aba <a href="#" onclick="showTab('seg');return false">Segurança</a> (voltar não garante tirar vírus).</li>
+          <li>Você <b>apagou uma foto ou documento</b> → o backup não traz arquivos pessoais de volta. Procure na Lixeira.</li>
+          <li>Na dúvida → <b>não use</b>. Peça ajuda primeiro (o relatório para IA ajuda a explicar o problema).</li></ol></div>
+      </div>
+      <p class="hint"><b>O que acontece:</b> o PC reinicia e leva de 15 a 45 min. <b>Não desligue</b> no meio. Programas e drivers instalados <b>depois</b> do ponto somem.</p>
+      <div class="btns"><button class="r" ${busy?"disabled":""} onclick="restoreGate('point')">Quero voltar para um ponto de restauração…</button>
+        <button class="sm w" ${busy?"disabled":""} onclick="restoreGate('image')">Quero voltar para a imagem completa…</button></div>
+    </details></div>
+  <div class="card"><h2>Se o Windows nem ligar</h2>
+    <p class="hint">Aí o CalorScan não abre. <b>Tire uma foto destes passos com o celular agora</b>, para ter quando precisar:</p>
+    <ol class="tips">
+      <li>Ligue o notebook. Quando aparecer o logo, <b>segure o botão de ligar até desligar</b>. Faça isso <b>3 vezes</b>.</li>
+      <li>Na 3ª vez aparece <b>"Reparo Automático"</b> → clique em <b>Opções avançadas</b>.</li>
+      <li><b>Solução de problemas</b> → <b>Opções avançadas</b> → <b>Restauração do Sistema</b>.</li>
+      <li>Escolha o ponto com <b>"CalorScan"</b> no nome, do dia <b>antes</b> do problema. (A imagem completa fica em <b>Recuperação de Imagem do Sistema</b>.)</li></ol></div>`;
+}
+async function bkPoint(){
+  const desc = ($("#bkDesc")?.value||"").trim() || "manual";
+  if(!await confirmBox("Criar ponto de restauração?", "Leva 1 a 3 minutos. O Windows vai pedir permissão de administrador. Pode continuar usando o PC.", "Criar", "g")) return;
+  await doPC("bk_point", {desc}); PC._bkWasBusy = true; renderBackup();
+}
+async function bkImage(){
+  const t = (PC.bk.targets||[]).find(x=>x.letter===PC.bkTarget); if(!t) return;
+  if(!await confirmBox(`Criar imagem do sistema em ${esc(t.letter)}?`, `Copia o disco C: inteiro (uns ${fmtB((PC.bk.need||0))}). Leva de 30 min a 2 h e o PC fica mais lento enquanto isso. Deixe <b>na tomada</b>.
+      ${t.external?"":"<br><br>Esse disco fica <b>dentro do computador</b>: protege contra problemas no Windows, mas não se o computador quebrar."}`, "Criar imagem", "g")) return;
+  await doPC("bk_image", {target:t.letter}); PC._bkWasBusy = true; renderBackup();
+}
+/* restaurar: 3 caixinhas + digitar RESTAURAR (o servidor também confere a palavra) */
+function restoreGate(kind){
+  const pts = PC.bk?.points||[];
+  const img = kind==="image";
+  const checks = img ? [
+      "Entendo que o disco C: volta <b>inteiro</b> para o dia da imagem: <b>tudo o que salvei no C: depois disso some</b> (inclusive documentos e fotos).",
+      "Já tentei antes o <b>ponto de restauração</b> e não resolveu.",
+      "Copiei para outro lugar os arquivos importantes que salvei no C: depois da imagem."]
+    : [
+      "O Windows está com problema de verdade (tela azul, algo parou de funcionar) e <b>reiniciar não resolveu</b>.",
+      "Entendo que programas e drivers instalados <b>depois</b> do ponto vão sumir.",
+      "Salvei e fechei tudo o que estava aberto. O PC vai reiniciar e eu <b>não vou desligar</b> no meio."];
+  return new Promise(res => {
+    const m = document.createElement("div"); m.className = "modal";
+    m.innerHTML = `<div class="card" style="max-width:560px"><h3 style="color:var(--red2)">⚠ ${img?"Voltar para a imagem completa":"Voltar para um ponto de restauração"}</h3>
+      <p>${img?"Isso é <b>muito mais drástico</b> que o ponto de restauração. Só faça se ele não resolveu."
+        :pts[0]?`O ponto mais recente é <b>${esc(pts[0].desc)}</b> de ${new Date(pts[0].when).toLocaleString("pt-BR")}. Você escolhe qual usar na próxima tela.`:"Você escolhe qual ponto usar na próxima tela."}</p>
+      ${checks.map((c,i)=>`<label style="display:flex;gap:8px;margin:8px 0;align-items:flex-start;cursor:pointer"><input type="checkbox" class="chk" data-g="${i}"><span>${c}</span></label>`).join("")}
+      <p style="margin-top:10px">Para continuar, digite <b>RESTAURAR</b>:</p>
+      <input class="in" data-word autocomplete="off" style="width:100%">
+      <p class="hint" style="margin-top:8px">${img?"Vai abrir a tela <b>Recuperação</b> do Windows. Lá, em <b>Inicialização avançada → Reiniciar agora</b>, depois <b>Solução de problemas → Opções avançadas → Recuperação de Imagem do Sistema</b>."
+        :"Vai abrir o assistente oficial do Windows. Ele ainda mostra mais uma confirmação antes de começar."}</p>
+      <div class="btns"><button class="r" data-ok disabled>Abrir a tela do Windows</button><button class="w sm" style="background:#fff;color:var(--ink)" data-no>Cancelar (não quero)</button></div></div>`;
+    document.body.appendChild(m);
+    const ok = m.querySelector("[data-ok]"), word = m.querySelector("[data-word]");
+    const check = () => { ok.disabled = !([...m.querySelectorAll("[data-g]")].every(c=>c.checked) && word.value.trim().toUpperCase()==="RESTAURAR"); };
+    m.querySelectorAll("[data-g]").forEach(c=>c.onchange = check); word.oninput = check;
+    const close = v => { m.remove(); res(v); };
+    m.querySelector("[data-no]").onclick = () => close(false);
+    m.onclick = e => { if(e.target===m) close(false); };
+    ok.onclick = async () => { const w = word.value; close(true); await doPC(img?"bk_recovery":"bk_restore", {confirm:w}); };
+    m.querySelector("[data-no]").focus();
+  });
 }
 
 /* ---------------- segurança ---------------- */

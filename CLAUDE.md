@@ -82,6 +82,12 @@ briga). Com mais de um aparelho, sempre `-s <serial>`.
   `%LOCALAPPDATA%\CalorScan\vt_key.txt` (nunca no repositório); cache 3 dias em `vt_cache.json`; conta grátis = 4/min
   (`GAP` 15,5 s; "Conferir todos" espera sozinho). Para apps, `main_exe()` acha o .exe principal da pasta.
   Veredito: ≥5 antivírus = vírus; 2–4 = suspeito; 0–1 = limpo.
+- `backup.py` (aba Backup): ponto de restauração (`Checkpoint-Computer`, liga a Proteção do Sistema no C: se preciso,
+  reserva 8 GB, zera `SystemRestorePointCreationFrequency` só durante a criação e devolve o valor antigo) e imagem do
+  sistema (`wbadmin start backup -allCritical`, nunca no C:). Ler/criar pede admin; a lista fica em
+  `%LOCALAPPDATA%\CalorScan\backup_state.json`. Restaurar só abre telas do Windows (`rstrui.exe` ou `ms-settings:recovery`)
+  depois de 3 caixinhas + digitar RESTAURAR; o servidor também confere a palavra (`bk_restore`/`bk_recovery`).
+  Instalar drivers oferece "criar ponto antes" (marcado); se o ponto falhar, os drivers NÃO são instalados.
 - Python do gerenciador da Microsoft (pymanager) roda com **registro virtualizado**: o que ele grava em HKCU pode não
   aparecer para o PowerShell. Nunca rodar testes com `LOCALAPPDATA` trocado (o gerenciador baixa outro Python).
 - **Regra de tela**: marcar caixinhas nunca chama `renderDisks()`/re-render; só atualiza o botão (`updSelBtn`, `selClean`, `drvSel`).

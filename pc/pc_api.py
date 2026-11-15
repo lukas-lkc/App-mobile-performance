@@ -8,6 +8,7 @@ import urllib.parse
 import webbrowser
 from pathlib import Path
 
+import backup
 import discos
 import drivers
 import inventario as invmod
@@ -125,6 +126,8 @@ def get(path, qs):
     if path == "/api/pc/security":
         return {"result": SEC.result, "running": SEC.running, "quick": SEC.quick_result, "quick_running": SEC.quick_running,
                 "ignored": seguranca.ignore_load()}
+    if path == "/api/pc/backup":
+        return backup.state()
     if path == "/api/pc/vt":
         return {"has_key": bool(VT.key()), "batch": VT.batch}
     if path == "/api/pc/defender":
@@ -246,7 +249,25 @@ def post(path, body):
                 return 409, {"ok": False, "msg": "A busca já está rodando."}
             return job("Procurando drivers", DRV.search, JOBS.say)
         if a == "drv_install":
-            return job("Instalando drivers", DRV.install, list(body.get("ids") or []), JOBS.say)
+            ids = list(body.get("ids") or [])
+            if body.get("point"):
+                # primeiro o ponto de restauracao; se falhar, NAO instala (a pessoa decide de novo)
+                return job("Instalando drivers", lambda: (backup.create_point("antes de instalar drivers", JOBS.say),
+                                                          JOBS.say("Ponto criado ✓ Agora instalando os drivers…"),
+                                                          DRV.install(ids, JOBS.say))[2])
+            return job("Instalando drivers", DRV.install, ids, JOBS.say)
+        if a == "bk_refresh":
+            return job("Lendo os backups", backup.refresh, JOBS.say)
+        if a == "bk_point":
+            return job("Criando ponto de restauração", backup.create_point, body.get("desc", ""), JOBS.say)
+        if a == "bk_image":
+            return job("Criando imagem do sistema", backup.create_image, body.get("target", ""), JOBS.say)
+        if a in ("bk_restore", "bk_recovery"):
+            # trava extra no servidor: so abre com a palavra digitada pela pessoa
+            if str(body.get("confirm", "")).strip().upper() != "RESTAURAR":
+                return 400, {"ok": False, "msg": "Confirmação não digitada. Nada foi aberto."}
+            (backup.open_restore_wizard if a == "bk_restore" else backup.open_recovery_settings)()
+            return ok("Abri a tela do Windows. Leia com calma: ainda dá para cancelar lá.")
         if a == "drv_site":
             if not drivers.open_site(body.get("url")):
                 return 400, {"ok": False, "msg": "Endereço desconhecido."}

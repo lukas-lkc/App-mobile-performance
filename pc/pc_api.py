@@ -9,14 +9,17 @@ import webbrowser
 from pathlib import Path
 
 import discos
+import drivers
 import inventario as invmod
 import relatorio
 import seguranca
 import winapi
 from discos import DISK
+from drivers import DRV
 from inventario import INV
 from monitor import MON
 from seguranca import SEC
+from virustotal import VT
 
 REPORTS = None  # definido por calorscan_pc
 
@@ -81,7 +84,10 @@ def get(path, qs):
         score, label = relatorio.health(fs)
         live.update(findings=fs, score=score, score_label=label, busy=JOBS.busy, log=JOBS.log,
                     admin=winapi.is_admin(), sys=INV.sys, sec_running=SEC.running, sec_done=SEC.result is not None,
-                    disk_phase=DISK.state.get("phase"), undo=len(invmod.undo_load()))
+                    disk_phase=DISK.state.get("phase"), undo=len(invmod.undo_load()),
+                    drv_alert=sum(1 for u in DRV.updates or [] if u.get("kind") == "novo") + sum(1 for i in DRV.items or [] if i["old"] and i["cls"] == "DISPLAY"),
+                    drv_searching=DRV.searching, threat_running=SEC.quick_running,
+                    threats=len([t for t in (SEC.quick_result or {}).get("items", []) if not t.get("ignored")]))
         return live
     if path == "/api/pc/system":
         return INV.system(q.get("refresh") == "1")
@@ -117,7 +123,16 @@ def get(path, qs):
             INV.sys["power"] = p
         return {"power": p, "undo": invmod.undo_load()}
     if path == "/api/pc/security":
-        return {"result": SEC.result, "running": SEC.running}
+        return {"result": SEC.result, "running": SEC.running, "quick": SEC.quick_result, "quick_running": SEC.quick_running,
+                "ignored": seguranca.ignore_load()}
+    if path == "/api/pc/vt":
+        return {"has_key": bool(VT.key()), "batch": VT.batch}
+    if path == "/api/pc/defender":
+        return seguranca.defender_status()
+    if path == "/api/pc/drivers":
+        if DRV.items is None or q.get("refresh") == "1":
+            DRV.load((INV.sys or {}).get("maker", ""))
+        return DRV.state()
     if path == "/api/pc/disks":
         return {"drives": winapi.drives(), "state": DISK.state, "summary": DISK.summary()}
     if path == "/api/pc/disk/tree":
@@ -195,6 +210,50 @@ def post(path, body):
             return job("Verificação de segurança", lambda: (INV.get_startup(), SEC.scan(MON, INV, JOBS.say), None)[2])
         if a == "defender":
             return job("Antivírus do Windows", seguranca.defender_scan, body.get("kind", "quick"), JOBS.say)
+        if a == "defender_rt":
+            return job("Proteção em tempo real", seguranca.set_realtime, bool(body.get("on")), JOBS.say)
+        if a == "defender_open":
+            seguranca.open_defender(body.get("page", "threat"))
+            return ok()
+        if a == "threat_scan":
+            return job("Procurando ameaças", lambda: (INV.load_startup(), INV.load_apps(),
+                                                      SEC.quick_scan(MON, INV, JOBS.say))[2])
+        if a == "threat_remove":
+            return job("Removendo ameaça", seguranca.remove_threat, body.get("id"), MON, INV, JOBS.say)
+        if a == "threat_ignore":
+            return ok(seguranca.ignore(body.get("key"), bool(body.get("on", True))))
+        if a == "vt_key":
+            return ok(VT.set_key(body.get("key", "")))
+        if a == "vt_check":
+            try:
+                v = seguranca.vt_check(body.get("id"), bool(body.get("force")))
+            except seguranca.Limited as e:
+                return 429, {"ok": False, "msg": str(e)}
+            return 200, {"ok": True, "vt": v}
+        if a == "vt_all":
+            return job("VirusTotal", seguranca.vt_check_all, JOBS.say)
+        if a == "web_vt":
+            webbrowser.open("https://www.virustotal.com/gui/join-us")
+            return ok()
+        if a == "vt_link":
+            link = str(body.get("link") or "")
+            if not link.startswith("https://www.virustotal.com/gui/file/"):
+                return 400, {"ok": False}
+            webbrowser.open(link)
+            return ok()
+        if a == "drv_search":
+            if DRV.searching:
+                return 409, {"ok": False, "msg": "A busca já está rodando."}
+            return job("Procurando drivers", DRV.search, JOBS.say)
+        if a == "drv_install":
+            return job("Instalando drivers", DRV.install, list(body.get("ids") or []), JOBS.say)
+        if a == "drv_site":
+            if not drivers.open_site(body.get("url")):
+                return 400, {"ok": False, "msg": "Endereço desconhecido."}
+            return ok()
+        if a == "drv_wu":
+            os.startfile("ms-settings:windowsupdate-optionalupdates")
+            return ok()
         if a == "disk_scan":
             root = body.get("root") or ""
             if not os.path.isdir(root):

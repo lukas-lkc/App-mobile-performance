@@ -169,7 +169,7 @@ class Inventory:
                 reasons.append(("baixo", "sem fabricante informado"))
             if a["location"]:
                 reasons += [r for r in sus.path_reasons(os.path.join(a["location"], "x.exe"), "x.exe")
-                            if "aleatório" not in r[1] and "pirata" not in r[1]]
+                            if "aleatório" not in r[1] and "pirata" not in r[1] and "indesejado" not in r[1]]
             a["reasons"] = [r for _, r in reasons]
             a["risk"] = sus.level(reasons)
             try:

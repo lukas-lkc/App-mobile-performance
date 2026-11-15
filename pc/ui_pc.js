@@ -5,7 +5,7 @@ const PC = {tab: "painel", live: null, apps: null, startup: null, sec: null, dis
                    dupSel: new Set(), dups: null, clean: null, cleanSel: new Set(["temp", "browser", "thumbs"])},
             report: null, timer: null};
 const TABS = [["painel","Painel"],["procs","Processos"],["apps","Apps"],["inicio","Inicialização"],["esfriar","Esfriar"],
-              ["discos","Discos"],["seg","Segurança"],["relatorio","Relatório para IA"]];
+              ["discos","Discos"],["drivers","Drivers"],["seg","Segurança"],["relatorio","Relatório para IA"]];
 
 /* ---------------- utilidades ---------------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -46,7 +46,8 @@ function pcEnter(){ renderTabs(); showTab(PC.tab); livePoll(); }
 function renderTabs(){
   const L = PC.live || {}, f = L.findings || [];
   const cnt = {procs: (L.procs||[]).filter(p=>p.risk==="alto"||p.risk==="medio").length,
-               seg: f.filter(x=>x.tab==="seg" && x.level==="danger").length,
+               seg: f.filter(x=>x.tab==="seg" && x.level==="danger").length + (L.threats||0),
+               drivers: L.drv_alert||0,
                inicio: f.filter(x=>x.tab==="inicio" && x.level!=="info").length,
                apps: f.filter(x=>x.tab==="apps" && x.level!=="info").length,
                discos: f.filter(x=>x.tab==="discos" && x.level==="danger").length,
@@ -61,7 +62,8 @@ function showTab(t){
   else if(t==="inicio") loadStartup();
   else if(t==="esfriar") loadPower();
   else if(t==="discos") loadDisks();
-  else if(t==="seg") renderSec();
+  else if(t==="drivers") loadDrivers();
+  else if(t==="seg"){ renderSec(); loadVt().then(loadSec); loadDefender(); }
   else if(t==="relatorio") renderReport();
   window.scrollTo({top:0});
 }
@@ -90,7 +92,18 @@ async function livePoll(){
   renderTabs();
   if(PC.tab==="painel"||PC.tab==="procs") renderLive();
   if(PC.tab==="discos" && (L.disk_phase==="scanning"||L.disk_phase==="hashing"||PC._diskWasBusy)) diskTick();
-  if(PC.tab==="seg" && (L.sec_running || PC._secWasBusy)){ PC._secWasBusy = L.sec_running; if(!L.sec_running) loadSec(); else renderSec(); }
+  if(PC.tab==="seg"){
+    const secBusy = L.sec_running || L.threat_running || L.busy;
+    // atualiza a tela só quando algo termina (não redesenha a cada 2 s, para não atrapalhar quem está lendo/clicando)
+    if(PC._secWasBusy && !secBusy){ loadSec(); loadDefender(); }
+    else if(secBusy && !PC._secWasBusy) renderSec();
+    PC._secWasBusy = secBusy;
+  }
+  if(PC.tab==="drivers"){
+    const b = L.drv_searching || (L.busy||"").includes("driver");
+    if(PC._drvWasBusy && !b) loadDrivers(); else if(b && !PC._drvWasBusy) renderDrivers();
+    PC._drvWasBusy = b;
+  }
   if(PC.tab==="apps" && PC._appsBusy && !L.busy){ PC._appsBusy=false; loadApps(); }
 }
 setInterval(livePoll, 2000);
@@ -458,7 +471,7 @@ async function renderFiles(el, sort){
       ${isDate?`<span class="seg"><button class="${sort==="new"?"sel":""}" onclick="PC.disk.sort='new';renderDisks()">Mais novos</button><button class="${sort==="old"?"sel":""}" onclick="PC.disk.sort='old';renderDisks()">Mais antigos</button></span>
         <span class="seg">${[[0,"Qualquer data"],[365,"+1 ano"],[730,"+2 anos"]].map(([k,l])=>`<button class="${d.older==k?"sel":""}" onclick="PC.disk.older=${k};PC.disk.offset=0;renderDisks()">${l}</button>`).join("")}</span>`:""}
       <span class="sp" style="flex:1"></span>
-      <button class="sm r" ${d.sel.size?"":"disabled"} onclick="recycle([...PC.disk.sel])">Mandar ${d.sel.size||""} para a Lixeira${d.sel.size?` (${fmtB(selB)})`:""}</button>
+      <button class="sm r" id="recBtn" ${d.sel.size?"":"disabled"} onclick="recycle([...PC.disk.sel])">Mandar ${d.sel.size||""} para a Lixeira${d.sel.size?` (${fmtB(selB)})`:""}</button>
     </div>
     <div class="list">${r.rows.map(f=>`<div class="it"><div>${f.protected?`<span title="protegido">🔒</span>`:`<input type="checkbox" class="chk" ${d.sel.has(f.path)?"checked":""} onchange='selFile(${J(f.path)},this.checked)'>`}</div>
       <div style="min-width:0"><div class="t" title="${esc(f.path)}">${esc(f.path.split("\\").pop())}</div>
@@ -467,7 +480,25 @@ async function renderFiles(el, sort){
     <div class="btns">${d.offset?`<button class="sm w" onclick="PC.disk.offset-=100;renderDisks()">← Anteriores</button>`:""}
       ${d.offset+100<r.total?`<button class="sm w" onclick="PC.disk.offset+=100;renderDisks()">Próximos →</button>`:""}</div></div>`;
 }
-function selFile(p, on){ on ? PC.disk.sel.add(p) : PC.disk.sel.delete(p); const b = document.querySelector("#dv .tbar .r"); renderDisksKeepScroll(); }
+/* marcar caixinhas NÃO redesenha a tela: só atualiza o botão de ação (antes a lista piscava a cada clique) */
+function updSelBtn(id, sel, sizeOf){
+  const b = document.getElementById(id); if(!b) return;
+  const n = sel.size, bytes = [...sel].reduce((s,p)=>s+(sizeOf(p)||0),0);
+  b.disabled = !n;
+  b.textContent = `Mandar ${n||""} para a Lixeira${n?` (${fmtB(bytes)})`:""}`;
+}
+function selFile(p, on){ on ? PC.disk.sel.add(p) : PC.disk.sel.delete(p); updSelBtn("recBtn", PC.disk.sel, x=>PC.disk.sizes?.[x]); }
+function selDup(p, on){ on ? PC.disk.dupSel.add(p) : PC.disk.dupSel.delete(p); updSelBtn("recBtnDup", PC.disk.dupSel, x=>PC.disk.dupSize?.[x]); }
+function syncDupChecks(){
+  document.querySelectorAll("#dv input[data-dup]").forEach(c=>{ c.checked = PC.disk.dupSel.has(c.dataset.dup); });
+  updSelBtn("recBtnDup", PC.disk.dupSel, x=>PC.disk.dupSize?.[x]);
+}
+function selClean(id, on){
+  on ? PC.disk.cleanSel.add(id) : PC.disk.cleanSel.delete(id);
+  const b = document.getElementById("cleanBtn"); if(!b) return;
+  const tot = (PC.disk.clean?.items||[]).filter(i=>PC.disk.cleanSel.has(i.id)).reduce((s,i)=>s+i.bytes,0);
+  b.disabled = !PC.disk.cleanSel.size; b.textContent = `Limpar selecionados (${fmtB(tot)})`;
+}
 function renderDisksKeepScroll(){ const y = window.scrollY; renderDisks(); setTimeout(()=>window.scrollTo({top:y}), 60); }
 function renderTypes(el, sum){
   const max = Math.max(1, ...sum.cats.map(c=>c.bytes));
@@ -484,17 +515,18 @@ async function renderDups(el, sum){
     <button class="g" onclick="doPC('dups');PC._diskWasBusy=true;setTimeout(diskTick,400)">Procurar duplicados</button></div>`; return; }
   if(busy){ el.innerHTML = ""; return; }
   const r = await api("/api/pc/disk/dups"); PC.disk.dups = r.groups;
+  PC.disk.dupSize = {}; r.groups.forEach(g=>g.files.forEach(f=>PC.disk.dupSize[f.path]=g.size));
   const sel = PC.disk.dupSel, selB = r.groups.reduce((s,g)=>s+g.files.filter(f=>sel.has(f.path)).length*g.size,0);
   el.innerHTML = `<div class="card"><h2>Arquivos duplicados <small>${r.groups.length} grupos · ${fmtB(sum.dups.waste)} em cópias</small></h2>
     <p class="hint">Em cada grupo, os arquivos são <b>idênticos</b>. Marque as cópias que quer apagar (vão para a Lixeira). O botão abaixo marca todas as cópias e <b>mantém o arquivo mais antigo</b> de cada grupo.</p>
-    <div class="tbar"><button class="sm y" onclick="dupAuto()">Marcar cópias (manter o mais antigo)</button><button class="sm w" onclick="PC.disk.dupSel.clear();renderDisks()">Desmarcar</button>
-      <span style="flex:1"></span><button class="sm r" ${sel.size?"":"disabled"} onclick="recycle([...PC.disk.dupSel])">Mandar ${sel.size||""} para a Lixeira${sel.size?` (${fmtB(selB)})`:""}</button></div>
+    <div class="tbar"><button class="sm y" onclick="dupAuto()">Marcar cópias (manter o mais antigo)</button><button class="sm w" onclick="PC.disk.dupSel.clear();syncDupChecks()">Desmarcar</button>
+      <span style="flex:1"></span><button class="sm r" id="recBtnDup" ${sel.size?"":"disabled"} onclick="recycle([...PC.disk.dupSel])">Mandar ${sel.size||""} para a Lixeira${sel.size?` (${fmtB(selB)})`:""}</button></div>
     ${r.groups.slice(0,150).map(g=>`<div class="grp"><div class="h">${g.count} cópias · ${fmtB(g.size)} cada · <span style="color:var(--red2)">${fmtB(g.waste)} sobrando</span> <span class="tag g">${esc(g.cat)}</span></div>
-      ${g.files.map((f,i)=>`<div class="it" style="padding:5px 0"><div><input type="checkbox" class="chk" ${sel.has(f.path)?"checked":""} onchange='this.checked?PC.disk.dupSel.add(${J(f.path)}):PC.disk.dupSel.delete(${J(f.path)});renderDisksKeepScroll()'></div>
+      ${g.files.map((f,i)=>`<div class="it" style="padding:5px 0"><div><input type="checkbox" class="chk" data-dup="${esc(f.path)}" ${sel.has(f.path)?"checked":""} onchange='selDup(${J(f.path)},this.checked)'></div>
         <div style="min-width:0"><div class="d" style="color:var(--ink)" title="${esc(f.path)}">${esc(f.path)}</div><div class="d">${fmtD(f.mtime)}${i===0?" · mais antigo":""}</div></div>
         <div class="r"><button class="sm w" onclick='doPC("open",{path:${J(f.path)}})'>📁</button></div></div>`).join("")}</div>`).join("") || `<div class="empty2">Nenhum duplicado encontrado. 👍</div>`}</div>`;
 }
-function dupAuto(){ (PC.disk.dups||[]).forEach(g=>g.files.slice(1).forEach(f=>PC.disk.dupSel.add(f.path))); renderDisksKeepScroll(); }
+function dupAuto(){ (PC.disk.dups||[]).forEach(g=>g.files.slice(1).forEach(f=>PC.disk.dupSel.add(f.path))); syncDupChecks(); }
 async function recycle(paths, bytes){
   const n = paths.length; if(!n) return;
   if(!await confirmBox(`Mandar ${n} item(ns) para a Lixeira?`, `${bytes?fmtB(bytes)+". ":""}Eles saem da pasta mas ficam na Lixeira; dá para restaurar de lá. O espaço só volta quando você esvaziar a Lixeira (aba Limpeza rápida).`, "Mandar para a Lixeira")) return;
@@ -509,10 +541,10 @@ async function renderCleanup(el){
   const tot = c.items.filter(i=>sel.has(i.id)).reduce((s,i)=>s+i.bytes,0);
   el.innerHTML = `<div class="card"><h2>Limpeza rápida <small>não precisa analisar o disco</small><span class="sp"></span><button class="sm w" onclick="PC.disk.clean=null;renderDisks()">Medir de novo</button></h2>
     <p class="hint">Só coisas que o Windows e os programas <b>recriam sozinhos</b>. Nenhum documento, foto ou senha é apagado. Itens com 🛡 pedem permissão de administrador.</p>
-    <div class="list">${c.items.map(i=>`<div class="it"><div><input type="checkbox" class="chk" ${sel.has(i.id)?"checked":""} onchange="this.checked?PC.disk.cleanSel.add('${i.id}'):PC.disk.cleanSel.delete('${i.id}');renderDisksKeepScroll()"></div>
+    <div class="list">${c.items.map(i=>`<div class="it"><div><input type="checkbox" class="chk" ${sel.has(i.id)?"checked":""} onchange="selClean('${i.id}',this.checked)"></div>
       <div style="min-width:0"><div class="t">${esc(i.name)} ${i.admin&&!c.admin?"🛡":""}</div><div class="d" style="white-space:normal">${esc(i.why)}</div></div>
       <div class="r"><span class="mini">${(i.files||0).toLocaleString("pt-BR")} arq.<b>${fmtB(i.bytes)}</b></span></div></div>`).join("")}</div>
-    <div class="btns"><button class="g" ${sel.size?"":"disabled"} onclick="doCleanup()">Limpar selecionados (${fmtB(tot)})</button></div></div>`;
+    <div class="btns"><button class="g" id="cleanBtn" ${sel.size?"":"disabled"} onclick="doCleanup()">Limpar selecionados (${fmtB(tot)})</button></div></div>`;
 }
 async function doCleanup(){
   const ids = [...PC.disk.cleanSel];
@@ -522,15 +554,181 @@ async function doCleanup(){
   const w = setInterval(async()=>{ if(!PC.live.busy){ clearInterval(w); PC.disk.clean=null; PC.disks = await api("/api/pc/disks"); if(PC.tab==="discos") renderDisks(); } }, 1500);
 }
 
+/* ---------------- drivers ---------------- */
+async function loadDrivers(refresh){
+  if(!PC.drv) $("#pcBody").innerHTML = `<div class="card empty2"><span class="spin"></span> Lendo os drivers instalados…</div>`;
+  PC.drv = await api("/api/pc/drivers" + (refresh?"?refresh=1":""));
+  if(!PC.drvSel && PC.drv.updates) PC.drvSel = new Set(PC.drv.updates.filter(u=>u.kind==="novo").map(u=>u.id));
+  if(PC.tab==="drivers") renderDrivers();
+}
+function renderDrivers(){
+  const D = PC.drv||{}, L = PC.live||{}, items = D.items||[], ups = D.updates;
+  const searching = L.drv_searching || D.searching, busy = !!L.busy;
+  const KIND = {novo:["ok","mais novo"], velho:["g","mais velho que o seu"], firmware:["medio","BIOS"], sem_data:["g","sem data"]};
+  const old = items.filter(i=>i.old);
+  const sel = PC.drvSel || new Set();
+  let h = `<div class="card"><h2>Drivers <span class="sp"></span>
+      <button class="sm w" ${busy?"disabled":""} onclick="loadDrivers(true)">Ler de novo</button>
+      <button class="g" ${searching||busy?"disabled":""} onclick="drvSearch()">${searching?`<span class="spin"></span> Procurando…`:"Procurar atualizações"}</button></h2>
+    <p class="hint">Driver é o programa que faz cada peça (placa de vídeo, som, Wi-Fi) funcionar. Driver velho pode causar <b>calor, travadas, som e Wi-Fi caindo</b>.
+      O botão <b>Procurar atualizações</b> usa o Windows Update (o jeito mais seguro). O que o Windows não tiver, o botão <b>Site</b> abre a página oficial do fabricante.</p></div>`;
+  // atualizações do Windows Update
+  if(ups==null) h += `<div class="card"><h2>Atualizações disponíveis</h2><div class="empty2">${searching?`<span class="spin"></span> Conversando com o Windows Update… (até 3 min)`:`Clique em <b>Procurar atualizações</b>.`}</div></div>`;
+  else {
+    const n = ups.filter(u=>sel.has(u.id)).length;
+    h += `<div class="card"><h2>Atualizações disponíveis <small>${ups.length} no Windows Update</small><span class="sp"></span>
+        <button class="sm w" onclick="doPC('drv_wu')">Abrir no Windows</button>
+        <button class="g" id="drvBtn" ${n&&!busy?"":"disabled"} onclick="drvInstall()">Instalar ${n||""} selecionado(s)</button></h2>
+      ${D.wu_error?`<p class="hint" style="color:var(--red2)">${esc(D.wu_error)}</p>`:""}
+      <p class="hint">Já deixei marcados só os que são <b>mais novos</b> que o seu. O Windows às vezes oferece um driver <b>mais velho</b> do que o instalado: esses ficam desmarcados.
+        Instalar pede permissão de administrador; a tela pode piscar e o som/internet cair por alguns segundos.</p>
+      <div class="list">${ups.map(u=>{ const k = KIND[u.kind]||KIND.sem_data;
+        return `<div class="it"><div><input type="checkbox" class="chk" data-drv="${esc(u.id)}" ${sel.has(u.id)?"checked":""} onchange='drvSel(${J(u.id)},this.checked)'></div>
+        <div style="min-width:0"><div class="t">${esc(u.model||u.title)}<span class="tag ${k[0]}">${k[1]}</span></div>
+          <div class="d" style="white-space:normal">${esc(u.prov)} · versão de ${fmtD(u.date)}${u.size?" · "+fmtB(u.size):""}${u.installed_ver?` · o seu: ${esc(u.installed_ver)} de ${fmtD(u.installed_date)}`:""}</div>
+          ${u.kind==="firmware"?`<div class="why medio">⚠ Atualiza a BIOS do computador. Só instale <b>na tomada</b> e <b>não desligue</b> o PC até terminar (ele reinicia sozinho).</div>`:""}</div>
+        <div class="r"></div></div>`; }).join("") || `<div class="empty2">O Windows Update não tem drivers novos. 👍</div>`}</div></div>`;
+  }
+  // instalados
+  const vid = items.filter(i=>i.cls==="DISPLAY");
+  h += `<div class="card"><h2>Placa de vídeo <small>a mais importante para jogos e calor</small></h2><div class="list">${vid.map(drvRow).join("") || `<div class="empty2">Nenhuma encontrada.</div>`}</div>
+    <p class="hint" style="margin-top:8px">Placa de vídeo: o Windows Update quase nunca tem a versão mais nova. Use o botão <b>Site</b> (ou o app da NVIDIA/AMD/Intel) para baixar.</p></div>`;
+  const rest = items.filter(i=>i.cls!=="DISPLAY");
+  h += `<div class="card"><h2>Outros drivers <small>${rest.length} de outros fabricantes${old.length?` · ${old.filter(i=>i.cls!=="DISPLAY").length} antigos`:""}</small></h2>
+    <p class="hint">"Antigo" = mais de 3 anos em som, rede, Bluetooth, câmera e discos. Driver antigo que funciona bem <b>não precisa</b> ser trocado.
+      Os de chipset da Intel não mostram data (a Intel não informa).</p>
+    <div class="list">${rest.map(drvRow).join("") || `<div class="empty2">${D.items?"Nenhum.":"<span class='spin'></span> Lendo…"}</div>`}</div></div>`;
+  $("#pcBody").innerHTML = h;
+}
+function drvRow(i){
+  return `<div class="it"><div class="ico ${i.old?"medio":"app"}">${i.old?"!":"⚙"}</div>
+    <div style="min-width:0"><div class="t">${esc(i.dev)}${i.old?`<span class="tag medio">antigo</span>`:""}<span class="tag g">${esc(i.group)}</span></div>
+      <div class="d">${esc(i.prov)} · versão ${esc(i.ver)}${i.date?` · de ${fmtD(i.date)} (${i.age>=365?`${Math.floor(i.age/365)} ano${i.age>=730?"s":""}`:i.age>=60?`${Math.floor(i.age/30)} meses`:`${i.age} dias`})`:""}</div></div>
+    <div class="r">${i.site?`<button class="sm w" title="Abre ${esc(i.site_name)}" onclick='doPC("drv_site",{url:${J(i.site)}})'>Site ${esc(i.site_name.split(" ")[0])}</button>`:""}</div></div>`;
+}
+function drvSel(id, on){
+  PC.drvSel = PC.drvSel || new Set();
+  on ? PC.drvSel.add(id) : PC.drvSel.delete(id);
+  const b = $("#drvBtn"); if(b){ const n = PC.drvSel.size; b.disabled = !n; b.textContent = `Instalar ${n||""} selecionado(s)`; }
+}
+async function drvSearch(){ PC.drvSel = null; await doPC("drv_search"); PC._drvWasBusy = true; renderDrivers(); }
+async function drvInstall(){
+  const ids = [...PC.drvSel], ups = (PC.drv.updates||[]).filter(u=>ids.includes(u.id));
+  const fw = ups.some(u=>u.kind==="firmware"), velho = ups.some(u=>u.kind==="velho");
+  if(!await confirmBox(`Instalar ${ids.length} driver(s)?`, `Vai baixar do Windows Update e instalar. O Windows vai pedir permissão de administrador. Salve o que estiver fazendo: a tela pode piscar.`
+      + (fw?`<br><br><b>Inclui a BIOS:</b> deixe na tomada e não desligue o PC.`:"") + (velho?`<br><br><b>Atenção:</b> você marcou um driver mais velho que o instalado.`:""), "Instalar", "g")) return;
+  await doPC("drv_install", {ids}); PC.drvSel = null; PC._drvWasBusy = true;
+}
+
 /* ---------------- segurança ---------------- */
-async function loadSec(){ const j = await api("/api/pc/security"); PC.sec = j.result; if(PC.tab==="seg") renderSec(); }
+async function loadSec(){ const j = await api("/api/pc/security"); PC.sec = j.result; PC.quick = j.quick; if(PC.tab==="seg") renderSec(); }
+async function loadDefender(){ PC.def = await api("/api/pc/defender"); if(PC.tab==="seg") renderSec(); }
+function threatsHTML(L){
+  const Q = PC.quick, running = L.threat_running, busy = !!L.busy;
+  const items = Q?.items||[], act = items.filter(t=>!t.ignored), ign = items.filter(t=>t.ignored);
+  const row = t => `<div class="it"><div class="ico ${t.ignored?"windows":t.risk}">${t.ignored?"–":"!"}</div>
+    <div style="min-width:0"><div class="t">${esc(t.name)}<span class="tag ${t.risk}">${t.defender?"vírus confirmado":t.risk==="alto"?"perigoso":"suspeito"}</span><span class="tag g">${esc(t.kind_label)}</span></div>
+      <div class="d" title="${esc(t.exe)}">${esc(t.exe||"—")}</div>
+      ${t.defender?`<div class="why alto">🛡 O antivírus do Windows identificou: ${esc(t.defender)}</div>`:""}
+      <div class="why ${t.risk}">⚠ ${esc(t.reasons.join("; "))}</div>${vtLine(t)}</div>
+    <div class="r">${t.file&&PC.vt?.has_key?`<button class="sm w" title="Conferir ${esc(t.file.split("\\").pop())} com ~70 antivírus (só a impressão digital do arquivo sai do PC)" ${PC._vtBusy===t.id?"disabled":""} onclick='vtCheck(${J(t.id)})'>${PC._vtBusy===t.id?`<span class="spin"></span>`:"VirusTotal"}</button>`:""}
+      ${t.exe&&t.kind!=="app"?`<button class="sm w" title="Abrir a pasta" onclick='doPC("open",{path:${J(t.exe)}})'>📁</button>`:""}
+      <button class="sm w" title="Pesquisar na internet o que é" onclick='doPC("web",{name:${J(t.name)}})'>🔎</button>
+      ${t.ignored?`<button class="sm w" onclick='threatIgnore(${J(t.key)},false)'>Voltar a avisar</button>`
+        :`<button class="sm w" title="É confiável: não avisar mais" onclick='threatIgnore(${J(t.key)},true)'>Ignorar</button>
+          <button class="sm r" ${busy?"disabled":""} onclick='threatRemove(${J(t.id)})'>Remover</button>`}</div></div>`;
+  return `<div class="card"><h2>Procurar ameaças <small>verificação rápida</small><span class="sp"></span>
+      <button class="g" ${running||busy?"disabled":""} onclick="threatScan()">${running?`<span class="spin"></span> Procurando…`:Q?"Procurar de novo":"Procurar agora"}</button></h2>
+    <p class="hint">Olha os programas abertos, o que abre com o Windows, tarefas, serviços e apps instalados atrás de <b>mineradores, adware, piratas e vírus</b>,
+      e pede ao antivírus do Windows para conferir os arquivos suspeitos. Leva de 15 s a 2 min. <b>Remover</b> encerra o programa, tira da inicialização
+      e desinstala (ou manda o arquivo para a <b>Lixeira</b>, de onde dá para restaurar). O que for desligado volta com <b>Desfazer tudo</b> na aba Inicialização.</p>
+    ${Q?`<p class="hint">Última: ${new Date(Q.t*1000).toLocaleTimeString("pt-BR")} · ${Q.counts.procs} programas abertos, ${Q.counts.startup+Q.counts.tasks} itens de inicialização/tarefas,
+      ${Q.counts.services} serviços e ${Q.counts.apps} apps verificados${Q.checked_exes?` · ${Q.checked_exes} arquivo(s) conferido(s) pelo antivírus`:""}${Q.defender_ok===false?" · <b>o antivírus do Windows não respondeu</b>":""}.</p>`:""}
+    ${vtBox(Q, act, busy)}
+    ${Q?(act.length?`<div class="list">${act.map(row).join("")}</div>`:`<div class="find ok"><div class="ic"></div><div><b>Nenhuma ameaça encontrada</b><span>Para ir mais fundo, rode a verificação offline do antivírus abaixo.</span></div></div>`)
+       +(ign.length?`<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">${ign.length} ignorado(s) por você</summary><div class="list">${ign.map(row).join("")}</div></details>`:""):""}</div>`;
+}
+/* VirusTotal: só a impressão digital (SHA-256) sai do PC, e só quando a pessoa clica */
+async function loadVt(){ PC.vt = await api("/api/pc/vt"); }
+function vtLine(t){
+  const v = t.vt; if(!v) return "";
+  const cls = v.verdict==="virus"?"alto":v.verdict==="suspeito"?"medio":"baixo";
+  const ic = v.verdict==="virus"?"⛔":v.verdict==="suspeito"?"⚠":v.verdict==="limpo"?"✔":"❔";
+  return `<div class="why ${cls}" ${v.verdict==="limpo"?'style="color:var(--blue2)"':""}>${ic} VirusTotal: ${esc(v.text)}
+    ${v.link?`<a href="#" onclick='doPC("vt_link",{link:${J(v.link)}});return false'>ver detalhes</a>`:""}</div>`;
+}
+function vtBox(Q, act, busy){
+  const V = PC.vt;
+  if(!V) return "";
+  if(!V.has_key) return `<details class="vtbox" style="margin:8px 0 12px" ${PC._vtOpen?"open":""} ontoggle="PC._vtOpen=this.open">
+    <summary class="hint" style="cursor:pointer"><b>Segunda opinião com o VirusTotal</b> (cerca de 70 antivírus) — configurar</summary>
+    <ol class="tips" style="margin-top:6px">
+      <li>Crie uma conta grátis em <a href="#" onclick="doPC('web_vt');return false">virustotal.com</a>.</li>
+      <li>Clique no seu nome (canto de cima) → <b>API key</b> e copie a chave.</li>
+      <li>Cole aqui: <input class="in" id="vtKey" type="password" autocomplete="off" style="width:260px" placeholder="chave de 64 letras e números">
+        <button class="sm g" onclick="vtSaveKey()">Salvar</button></li></ol>
+    <p class="hint">A chave fica só neste PC. Ao conferir, o CalorScan manda ao VirusTotal apenas a <b>impressão digital</b> do arquivo (um código), nunca o arquivo.
+      Conta grátis: 4 consultas por minuto.</p></details>`;
+  const pend = act.filter(t=>t.file && !t.vt).length;
+  return `<div class="tbar" style="margin:4px 0 10px"><span class="hint" style="margin:0">VirusTotal ligado: clique em <b>VirusTotal</b> num item para conferir com ~70 antivírus.</span>
+    <span style="flex:1"></span>
+    ${Q&&pend?`<button class="sm" ${busy?"disabled":""} onclick="doPC('vt_all');PC._secWasBusy=true">Conferir todos (${pend})</button>`:""}
+    <button class="sm w" onclick="vtForget()">Apagar chave</button></div>`;
+}
+async function vtSaveKey(){
+  const k = $("#vtKey").value.trim(); if(!k) return;
+  const j = await doPC("vt_key", {key:k}); if(j.ok){ await loadVt(); renderSec(); }
+}
+async function vtForget(){
+  if(!await confirmBox("Apagar a chave do VirusTotal?", "O CalorScan para de consultar o VirusTotal. Os resultados já vistos continuam guardados.", "Apagar")) return;
+  await doPC("vt_key", {key:""}); await loadVt(); renderSec();
+}
+async function vtCheck(id){
+  PC._vtBusy = id; renderSec();
+  const j = await doPC("vt_check", {id}, true);
+  PC._vtBusy = null;
+  if(j.ok){ const t = (PC.quick?.items||[]).find(x=>x.id===id); if(t){ t.vt = j.vt; if(j.vt.verdict==="virus") t.risk="alto"; } toast("VirusTotal: " + j.vt.text); }
+  else toast(j.msg || "Não deu para conferir.");
+  renderSec();
+}
+function defenderHTML(L){
+  const D = PC.def;
+  if(!D) return `<div class="card"><h2>Antivírus do Windows</h2><div class="empty2"><span class="spin"></span> Lendo…</div></div>`;
+  if(!D.ok) return `<div class="card"><h2>Antivírus do Windows</h2><p class="hint">Não deu para ler o Windows Defender (talvez outro antivírus esteja no lugar dele).</p></div>`;
+  const busy = !!L.busy;
+  return `<div class="card"><h2>Antivírus do Windows <span class="sp"></span><button class="sm w" onclick="doPC('defender_open',{page:'home'})">Abrir no Windows</button></h2>
+    <div class="list">
+      <div class="it"><div class="ico ${D.rt?"app":"alto"}">🛡</div><div><div class="t">Proteção em tempo real<span class="tag ${D.rt?"ok":"alto"}">${D.rt?"ligada":"desligada"}</span></div>
+        <div class="d" style="white-space:normal">Vigia cada arquivo que abre ou baixa. ${D.rt?"Deixe ligada. Desligue só por alguns minutos se um programa confiável estiver sendo bloqueado.":"<b>Sem ela o PC fica desprotegido.</b> Ligue de novo."}
+        ${D.tamper?"<br>A <b>Proteção contra adulteração</b> está ligada: ela impede que qualquer programa (vírus ou o próprio CalorScan) desligue o antivírus. Se o Windows não deixar, o CalorScan abre a tela certa para você mudar.":""}</div></div>
+        <div class="r">${togHTML(!!D.rt, `defToggle(this,${!D.rt})`, busy)}</div></div>
+    </div>
+    <p class="hint" style="margin-top:10px">A <b>verificação offline</b> é a mais forte contra mineradores e vírus escondidos: o PC reinicia e o antivírus verifica antes do Windows abrir (uns 15 min). Salve tudo antes.</p>
+    <div class="btns"><button class="sm" ${busy?"disabled":""} onclick="defScan('quick')">Verificação rápida</button>
+      <button class="sm" ${busy?"disabled":""} onclick="defScan('full')">Verificação completa</button>
+      <button class="sm o" ${busy?"disabled":""} onclick="defScan('offline')">Verificação offline (reinicia)</button>
+      <button class="sm w" ${busy?"disabled":""} onclick="defScan('update')">Atualizar proteção</button></div></div>`;
+}
+async function defToggle(btn, on){
+  if(!on && !await confirmBox("Desligar a proteção em tempo real?", "Enquanto estiver desligada, <b>vírus podem entrar sem aviso</b>. Só faça isso por pouco tempo e se tiver certeza de que o programa que está sendo bloqueado é confiável. O Windows religa sozinho depois de um tempo.", "Desligar")) return;
+  btn.disabled = true; await doPC("defender_rt", {on}); PC._secWasBusy = true;
+}
+async function threatScan(){ await doPC("threat_scan"); PC._secWasBusy = true; renderSec(); }
+async function threatRemove(id){
+  const t = (PC.quick?.items||[]).find(x=>x.id===id); if(!t) return;
+  const what = t.kind==="app" ? "Vai abrir o desinstalador dele (siga a janela)." :
+    "Vai encerrar o programa, tirar da inicialização e mandar o arquivo para a Lixeira (dá para restaurar de lá). Se ele pertencer a um app instalado, abre o desinstalador.";
+  if(!await confirmBox(`Remover ${esc(t.name)}?`, `${what}<br><br><span class="hint">${esc(t.exe)}</span>`, "Remover")) return;
+  await doPC("threat_remove", {id}); PC._secWasBusy = true;
+}
+async function threatIgnore(key, on){ await doPC("threat_ignore", {key, on}); loadSec(); }
 function renderSec(){
   const L = PC.live||{}, R = PC.sec, running = L.sec_running;
   if(R===null && !running && !PC._secLoaded){ PC._secLoaded = true; loadSec(); }
   const susp = (L.procs||[]).filter(p=>p.risk);
   const d = R?.defender||{};
   const card = (k, ok, v, s) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:22px;color:${ok===null?"var(--muted)":ok?"var(--green2)":"var(--red)"}">${v}</div><div class="s">${s||""}</div></div>`;
-  let h = `<div class="card"><h2>Segurança <span class="sp"></span>
+  let h = threatsHTML(L) + defenderHTML(L) + `<div class="card"><h2>Verificação completa do PC <span class="sp"></span>
       <button class="g" ${running||L.busy?"disabled":""} onclick="doPC('sec_scan');PC._secWasBusy=true">${running?`<span class="spin"></span> Verificando…`:R?"Verificar de novo":"Verificar agora"}</button></h2>
     <p class="hint">Confere o antivírus, o firewall, as ameaças que o Windows já encontrou, a assinatura digital dos programas abertos,
       programas piratas e rastros do vírus que sequestra arquivos. <b>Não apaga nada sozinho.</b> Leva de 20 s a 1 min.
@@ -544,13 +742,7 @@ function renderSec(){
       ${card("Firewall", fw.length?fwOn:null, fw.length?(fwOn?"Ligado":"Desligado em parte"):"—", fw.map(x=>x.n+": "+(x.on?"sim":"não")).join(" · "))}
       ${card("Atualização", d.sigAge==null?null:d.sigAge<=3, d.sigAge==null?"—":d.sigAge===0?"Hoje":`há ${d.sigAge} dias`, `verificação rápida há ${d.quickAge??"?"} dia(s)`)}
       ${card("Ameaças já achadas", (R.threats||[]).length===0, (R.threats||[]).length, "no histórico do Windows")}
-    </div>
-    <div class="card"><h2>Antivírus do Windows</h2>
-      <p class="hint">A <b>verificação offline</b> é a mais forte contra mineradores e vírus escondidos: o PC reinicia e o antivírus verifica antes do Windows abrir (uns 15 min). Salve tudo antes.</p>
-      <div class="btns"><button class="sm" ${L.busy?"disabled":""} onclick="defScan('quick')">Verificação rápida</button>
-        <button class="sm" ${L.busy?"disabled":""} onclick="defScan('full')">Verificação completa</button>
-        <button class="sm o" ${L.busy?"disabled":""} onclick="defScan('offline')">Verificação offline (reinicia)</button>
-        <button class="sm w" ${L.busy?"disabled":""} onclick="defScan('update')">Atualizar proteção</button></div></div>`;
+    </div>`;
     if((R.threats||[]).length) h += `<div class="card"><h2>Ameaças que o antivírus já encontrou</h2><div class="list">${R.threats.map(t=>`<div class="it"><div class="ico ${t.ok?"baixo":"alto"}">!</div>
       <div style="min-width:0"><div class="t">${esc(t.name||t.id)}<span class="tag ${t.ok?"ok":"alto"}">${t.ok?"resolvida":"não resolvida"}</span></div>
         <div class="d" title="${esc((t.res||[]).join("; "))}">${fmtD(t.when)} · ${esc((t.res||[]).join("; "))}</div></div><div class="r"></div></div>`).join("")}</div></div>`;

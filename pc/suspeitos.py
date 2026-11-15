@@ -43,7 +43,9 @@ BAD_CMD = [
 # Programas conhecidos como indesejados (adware/PUP)
 PUP = re.compile(r"onelaunch|wave browser|webdiscover|segurazo|santivirus|pc app store|search protect|conduit|"
                  r"babylon|ask toolbar|mywebsearch|shift browser|reimage|bytefence|pc accelerate|"
-                 r"driver support|webcompanion|mindspark|clara browser|kiwi search|safe finder", re.I)
+                 r"driver support|webcompanion|mindspark|clara browser|kiwi search|safe finder|host ?app ?service|"
+                 r"app explorer|sweetlabs|yandex|mail\.ru|hao123|baidu|360 ?safe|"
+                 r"pcappstore|driver ?booster|driver ?easy|advanced systemcare|iobit|wajam|bing bar|avast secure browser", re.I)
 
 RANK = {"alto": 3, "medio": 2, "baixo": 1}
 
@@ -73,6 +75,8 @@ def path_reasons(path, name=None):
     if p:
         if n in SYSNAMES and not in_windows(p) and "\\windowsapps\\" not in p:
             r.append(("alto", f"tem o nome de um programa do Windows ({n}) mas está fora da pasta do Windows"))
+        if PUP.search(p):
+            r.append(("medio", "programa conhecido como indesejado (propaganda/adware que vem junto de instaladores)"))
         if PIRACY.search(p):
             r.append(("medio", "veio de um programa pirata/crackeado (origem comum de vírus e mineradores)"))
         if "\\appdata\\local\\temp\\" in p or p.startswith(SYSROOT + "temp\\"):
@@ -81,7 +85,7 @@ def path_reasons(path, name=None):
             r.append(("alto", "roda de uma pasta pública ou da Lixeira"))
         if p.startswith(PDATA) and p.count("\\") <= 3 and "\\microsoft\\" not in p and "\\package cache\\" not in p:
             r.append(("medio", "roda direto da pasta ProgramData (lugar comum de vírus)"))
-        if "\\appdata\\roaming\\" in p:
+        if "\\appdata\\roaming\\" in p and "\\start menu\\" not in p:  # atalho na pasta Inicializar e normal
             rest = p.split("\\appdata\\roaming\\", 1)[1]
             if "\\" not in rest or rest.startswith("microsoft\\") and "\\teams\\" not in rest:
                 r.append(("medio", "roda solto dentro do AppData\\Roaming (lugar comum de vírus)"))

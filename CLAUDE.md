@@ -67,6 +67,26 @@ briga). Com mais de um aparelho, sempre `-s <serial>`.
 - `celular_live.py` (painel ao vivo do celular por ADB), `winapi.py`/`ps.py` (ctypes/PowerShell), `monitor.py`,
   `inventario.py` (desinstalar, inicialização, com desfazer em `pc_undo.json`), `suspeitos.py`, `seguranca.py`,
   `discos.py` (pesados, duplicados, por data, limpeza), `relatorio.py` (.md para IA), `pc_api.py`.
+- `drivers.py` (aba Drivers): lista drivers de outros fabricantes (`Win32_PnPSignedDriver`), marca "antigo"
+  (vídeo > 1 ano; som/rede/Bluetooth/câmera/discos > 3 anos; virtuais ignorados; data 1968 da Intel = sem data),
+  busca no Windows Update via COM (`Microsoft.Update.Session`, ~20 s, sem admin) e instala por UpdateID (admin).
+  O WU às vezes oferece driver **mais velho** que o instalado → `kind="velho"`, fica desmarcado; BIOS = `firmware`.
+  Versão NVIDIA amigável: `nvidia_version("32.0.15.7283") == "572.83"`. Botão "Site" só abre URLs da lista `SITES`/`MAKER_SITES`.
+- Segurança: "Procurar ameaças" (`SEC.quick_scan`) junta processos/inicialização/tarefas/serviços/apps com risco
+  alto/médio + `Start-MpScan CustomScan` nos .exe suspeitos. "Remover" (`remove_threat`) encerra, desliga (entra no
+  Desfazer), desinstala o app dono ou manda o arquivo para a Lixeira. "Ignorar" grava em `%LOCALAPPDATA%\CalorScan\sec_ignore.json`.
+  Chave do Defender: `Set-MpPreference -DisableRealtimeMonitoring` como admin; com Proteção contra adulteração ligada
+  o Windows ignora → abre `windowsdefender://threatsettings`.
+- `virustotal.py`: segunda opinião por clique (botão "VirusTotal" em cada ameaça, ou "Conferir todos"). Só o SHA-256
+  sai do PC, nunca o arquivo; arquivo nunca visto = "desconhecido" (não enviamos). Chave pessoal grátis em
+  `%LOCALAPPDATA%\CalorScan\vt_key.txt` (nunca no repositório); cache 3 dias em `vt_cache.json`; conta grátis = 4/min
+  (`GAP` 15,5 s; "Conferir todos" espera sozinho). Para apps, `main_exe()` acha o .exe principal da pasta.
+  Veredito: ≥5 antivírus = vírus; 2–4 = suspeito; 0–1 = limpo.
+- Python do gerenciador da Microsoft (pymanager) roda com **registro virtualizado**: o que ele grava em HKCU pode não
+  aparecer para o PowerShell. Nunca rodar testes com `LOCALAPPDATA` trocado (o gerenciador baixa outro Python).
+- **Regra de tela**: marcar caixinhas nunca chama `renderDisks()`/re-render; só atualiza o botão (`updSelBtn`, `selClean`, `drvSel`).
+  Na aba Segurança/Drivers o polling só redesenha quando um trabalho começa ou termina.
+- Testar no navegador embutido: `.claude/launch.json` (na pasta acima) sobe com `CALORSCAN_NO_WINDOW=1`, porta 8765.
 - Tudo leve: polling pausa com a janela escondida; animação do mascote curta.
 
 ## Histórico das últimas versões do app

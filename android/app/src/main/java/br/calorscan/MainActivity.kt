@@ -1073,6 +1073,41 @@ class MainActivity : Activity() {
             btn("Escolher tema", Ui.Kind.WHITE_) { chooseTheme() }
             p("Também pelo botão de sol/lua no topo.", 0)
         }
+        val up = Updater.step
+        card(if (up == Updater.Step.AVAILABLE) Ui.HILITE else Ui.WHITE) {
+            t("Atualizar o app")
+            p("Você tem a versão ${Updater.installedName(this@MainActivity)}." +
+                (if (Updater.msg.isNotEmpty()) "\n" + Updater.msg else "") +
+                (if (up == Updater.Step.DOWNLOADING) " ${Updater.progress}%" else ""), 4)
+            val refresh = { runOnUiThread { if (tab == 4) show(4) } }
+            when (up) {
+                Updater.Step.CHECKING, Updater.Step.DOWNLOADING, Updater.Step.INSTALLING -> Unit  // esperando
+                Updater.Step.AVAILABLE -> btn("Baixar e instalar a ${Updater.newName}", Ui.Kind.GREEN_) {
+                    if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+                        toast("Ligue “Permitir desta fonte” e volte aqui")
+                        open(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                    } else Updater.downloadAndInstall(this@MainActivity, refresh)
+                }
+                else -> btn("Procurar atualização") { Updater.check(this@MainActivity, refresh); show(4) }
+            }
+            p("Baixa do mesmo lugar do QR code abaixo. Seus ajustes e o histórico continuam. " +
+                "Na primeira vez o Android pede para permitir instalar apps do CalorScan.", 0)
+        }
+        card {
+            t("Instalar em outro celular")
+            p("Aponte a câmera do outro celular para o código. Ele abre o download do CalorScan (sempre a versão mais nova).", 4)
+            addView(QrView(this@MainActivity), LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                topMargin = (6 * resources.displayMetrics.density).toInt(); bottomMargin = topMargin
+            })
+            p("No outro celular: abra o arquivo baixado e permita “instalar apps desta fonte” quando o Android pedir. " +
+                "Funciona em Android 10 ou mais novo.", 4)
+            btn("Mandar o link (WhatsApp, e-mail…)", Ui.Kind.WHITE_) {
+                open(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, "CalorScan (Android): ${Qr.LINK}"), "Mandar o link do CalorScan"))
+            }
+        }
         card(Ui.WHITE) {
             t("Sobre")
             p("CalorScan ${runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrDefault("")} · " +

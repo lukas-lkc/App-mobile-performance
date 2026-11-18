@@ -11,8 +11,8 @@ android {
         applicationId = "br.calorscan"
         minSdk = 29
         targetSdk = 35
-        versionCode = 15
-        versionName = "2.11"
+        versionCode = 16
+        versionName = "2.12"
     }
 
     signingConfigs {

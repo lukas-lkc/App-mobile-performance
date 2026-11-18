@@ -104,6 +104,15 @@ briga). Com mais de um aparelho, sempre `-s <serial>`.
 - 2.10 — cartões azuis; aba Trabalho não volta ao topo ao tocar nos dias; quadros do Ao vivo com tamanho fixo.
 - 2.11 — quadro "Bateria" virou "Celular" (temperatura do corpo); Consumo mostra "bateria X °C"; topo mostra a
   temperatura do celular ("Celular fresquinho"); a palavra "carcaça" não aparece mais para a pessoa.
+- 2.12 — Config: cartão "Instalar em outro celular" com QR code do link do APK + botão "Mandar o link".
+  O QR é um desenho fixo em `Qr.kt` (`Qr.ROWS`, versão 6, correção M), sem biblioteca. Se o link mudar: num venv
+  temporário `pip install segno`, `segno.make_qr(LINK, error='m', boost_error=False).matrix` → linhas com `#`/`.`.
+  Compatível com Android 10+ (minSdk 29): Galaxy S22 ok (saiu com Android 12).
+  Config: cartão "Atualizar o app" (`Updater.kt`): só ao tocar, lê `apk/VERSION_CODE` em raw.githubusercontent.com,
+  baixa o APK para `cacheDir`, confere pacote e versão (`getPackageArchiveInfo`) e entrega ao `PackageInstaller`
+  (o Android pede "Atualizar?"; permissão `REQUEST_INSTALL_PACKAGES` + "Permitir desta fonte" na 1ª vez).
+  Testado no emulador: build de teste com código 14 → atualizou para a 2.11 do GitHub. Celulares na 2.11 ainda não
+  têm o botão: a 1ª atualização para a 2.12 vem pelo CalorScan PC ou pelo QR.
 
 ## Ideias/pendências
 

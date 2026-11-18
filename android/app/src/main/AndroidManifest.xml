@@ -5,6 +5,8 @@
     <!-- so para o tema "Ao vivo" (opcional): cidade aproximada + tempo do open-meteo.com -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- botao "Procurar atualizacao" (aba Config): o Android pede confirmacao a cada instalacao -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- basicas -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
